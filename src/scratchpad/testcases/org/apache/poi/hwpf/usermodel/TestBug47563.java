@@ -16,70 +16,93 @@
 ==================================================================== */
 package org.apache.poi.hwpf.usermodel;
 
-import junit.framework.TestCase;
-
 import org.apache.poi.hwpf.HWPFDocument;
 import org.apache.poi.hwpf.HWPFTestDataSamples;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import static org.junit.Assert.assertTrue;
 
 /**
  * Bug 47563 - Exception when working with table 
  */
-public class TestBug47563 extends TestCase {
+@RunWith(Parameterized.class)
+public class TestBug47563 {
 
-	public void test() throws Exception {
-		test(1, 5);
-		test(1, 6);
-		test(5, 1);
-		test(6, 1);
-		test(2, 2);
-		test(3, 2);
-		test(2, 3);
-		test(3, 3);
+	@Parameterized.Parameter()
+	public int rows;
+	@Parameterized.Parameter(1)
+	public int columns;
+
+	@Parameterized.Parameters(name="rows: {0}, columns: {1}")
+	public static Collection<Object[]> data() {
+		List<Object[]> data = new ArrayList<>();
+
+		data.add(new Object[] {1, 5});
+		data.add(new Object[] {1, 6});
+		data.add(new Object[] {5, 1});
+		data.add(new Object[] {6, 1});
+		data.add(new Object[] {2, 2});
+		data.add(new Object[] {3, 2});
+		data.add(new Object[] {2, 3});	//
+		data.add(new Object[] {3, 3});
+
+		return data;
 	}
 
-	private void test(int rows, int columns) throws Exception {
+	@Test
+	public void test() throws Exception {
+		System.out.println();
+		System.out.println("Testing with rows: " + rows + ", columns: " + columns);
+
 		// POI apparently can't create a document from scratch,
 		// so we need an existing empty dummy document
-		HWPFDocument doc = HWPFTestDataSamples.openSampleFile("empty.doc");
+		try (HWPFDocument doc = HWPFTestDataSamples.openSampleFile("empty.doc")) {
+			Range range = doc.getRange();
+			range.sanityCheck();
 
-		Range range = doc.getRange();
-		range.sanityCheck();
+			Table table = range.insertTableBefore((short) columns, rows);
+			table.sanityCheck();
 
-		Table table = range.insertTableBefore((short) columns, rows);
-		table.sanityCheck();
-
-		for (int rowIdx = 0; rowIdx < table.numRows(); rowIdx++) {
-			TableRow row = table.getRow(rowIdx);
-			row.sanityCheck();
-
-			System.out.println("row " + rowIdx);
-			for (int colIdx = 0; colIdx < row.numCells(); colIdx++) {
-				TableCell cell = row.getCell(colIdx);
-				cell.sanityCheck();
-
-				System.out.println("column " + colIdx + ", num paragraphs "
-						+ cell.numParagraphs());
-
-				Paragraph par = cell.getParagraph(0);
-				par.sanityCheck();
-
-				par.insertBefore("" + (rowIdx * row.numCells() + colIdx));
-				par.sanityCheck();
-				
+			for (int rowIdx = 0; rowIdx < table.numRows(); rowIdx++) {
+				TableRow row = table.getRow(rowIdx);
 				row.sanityCheck();
-				table.sanityCheck();
-				range.sanityCheck();
-			}
-		}
 
-		String text = range.text();
-		int mustBeAfter = 0;
-		for (int i = 0; i < rows * columns; i++) {
-			int next = text.indexOf(Integer.toString(i), mustBeAfter);
-			assertTrue("Test with " + rows + "/" + columns + ": Should not find " + i + " but found it at " + next + " with " + mustBeAfter + " in " + text + "\n" +
-							text.indexOf(Integer.toString(i), mustBeAfter),
-					next != -1);
-			mustBeAfter = next;
+				System.out.println("row " + rowIdx);
+				for (int colIdx = 0; colIdx < row.numCells(); colIdx++) {
+					TableCell cell = row.getCell(colIdx);
+					cell.sanityCheck();
+
+					System.out.println("column " + colIdx + ", num paragraphs "
+							+ cell.numParagraphs());
+
+					Paragraph par = cell.getParagraph(0);
+					par.sanityCheck();
+
+					par.insertBefore("" + (rowIdx * row.numCells() + colIdx));
+					par.sanityCheck();
+
+					row.sanityCheck();
+					table.sanityCheck();
+					range.sanityCheck();
+				}
+			}
+
+			String text = range.text();
+			int mustBeAfter = 0;
+			for (int i = 0; i < rows * columns; i++) {
+				int next = text.indexOf(Integer.toString(i), mustBeAfter);
+				assertTrue("Test with " + rows + "/" + columns + ": Should not find " + i +
+								" but found it at " + next + " with " + mustBeAfter + " in " + text + "\n" +
+								text.indexOf(Integer.toString(i), mustBeAfter),
+						next != -1);
+				mustBeAfter = next;
+			}
 		}
 	}
 }

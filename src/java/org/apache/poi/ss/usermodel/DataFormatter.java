@@ -306,10 +306,18 @@ public class DataFormatter implements Observer {
         if(formatStr == null || formatStr.trim().length() == 0) {
             return null;
         }
-        return getFormat(cell.getNumericCellValue(), formatIndex, formatStr);
+        return getFormat(cell.getNumericCellValue(), formatIndex, formatStr, isDate1904(cell));
     }
 
-    private Format getFormat(double cellValue, int formatIndex, String formatStrIn) {
+    private boolean isDate1904(Cell cell) {
+        if ( cell != null && cell.getSheet().getWorkbook() instanceof Date1904Support) {
+            return ((Date1904Support)cell.getSheet().getWorkbook()).isDate1904();
+
+        }
+        return false;
+    }
+    
+    private Format getFormat(double cellValue, int formatIndex, String formatStrIn, boolean use1904Windowing) {
         localeChangedObservable.checkForLocaleChange();
 
         // Might be better to separate out the n p and z formats, falling back to p when n and z are not set.
@@ -338,7 +346,7 @@ public class DataFormatter implements Observer {
                 if (DateUtil.isADateFormat(formatIndex, formatStr) && 
                         // don't try to handle Date value 0, let a 3 or 4-part format take care of it 
                         ((Double)cellValueO).doubleValue() != 0.0) {
-                    cellValueO = DateUtil.getJavaDate(cellValue);
+                    cellValueO = DateUtil.getJavaDate(cellValue, use1904Windowing);
                 }
                 // Wrap and return (non-cachable - CellFormat does that)
                 return new CellFormatResultWrapper( cfmt.apply(cellValueO) );
@@ -788,13 +796,16 @@ public class DataFormatter implements Observer {
         }
         return generalNumberFormat;
     }
-    
+
     /**
      * Performs Excel-style date formatting, using the
      *  supplied Date and format
      */
     private String performDateFormatting(Date d, Format dateFormat) {
-       return (dateFormat != null ? dateFormat : defaultDateformat).format(d);
+        Format df = dateFormat != null ? dateFormat : defaultDateformat;
+        synchronized (df) {
+            return df.format(d);
+        }
     }
 
     /**
@@ -815,14 +826,16 @@ public class DataFormatter implements Observer {
             return null;
         }
         Format dateFormat = getFormat(cell, cfEvaluator);
-        if(dateFormat instanceof ExcelStyleDateFormatter) {
-           // Hint about the raw excel value
-           ((ExcelStyleDateFormatter)dateFormat).setDateToBeFormatted(
-                 cell.getNumericCellValue()
-           );
+        synchronized (dateFormat) {
+            if(dateFormat instanceof ExcelStyleDateFormatter) {
+                // Hint about the raw excel value
+                ((ExcelStyleDateFormatter)dateFormat).setDateToBeFormatted(
+                        cell.getNumericCellValue()
+                );
+            }
+            Date d = cell.getDateCellValue();
+            return performDateFormatting(d, dateFormat);
         }
-        Date d = cell.getDateCellValue();
-        return performDateFormatting(d, dateFormat);
     }
 
     /**
@@ -870,7 +883,7 @@ public class DataFormatter implements Observer {
         // Is it a date?
         if(DateUtil.isADateFormat(formatIndex,formatString)) {
             if(DateUtil.isValidExcelDate(value)) {
-                Format dateFormat = getFormat(value, formatIndex, formatString);
+                Format dateFormat = getFormat(value, formatIndex, formatString, use1904Windowing);
                 if(dateFormat instanceof ExcelStyleDateFormatter) {
                     // Hint about the raw excel value
                     ((ExcelStyleDateFormatter)dateFormat).setDateToBeFormatted(value);
@@ -885,7 +898,7 @@ public class DataFormatter implements Observer {
         }
         
         // else Number
-        Format numberFormat = getFormat(value, formatIndex, formatString);
+        Format numberFormat = getFormat(value, formatIndex, formatString, use1904Windowing);
         if (numberFormat == null) {
             return String.valueOf(value);
         }

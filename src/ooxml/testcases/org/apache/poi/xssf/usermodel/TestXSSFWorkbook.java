@@ -489,7 +489,7 @@ public final class TestXSSFWorkbook extends BaseTestXWorkbook {
             CTWorkbook ctWorkbook = wb.getCTWorkbook();
             assertFalse(ctWorkbook.isSetCalcPr());
 
-            wb.setForceFormulaRecalculation(true); // resets the EngineId flag to zero
+            wb.setForceFormulaRecalculation(true);
 
             CTCalcPr calcPr = ctWorkbook.getCalcPr();
             assertNotNull(calcPr);
@@ -498,8 +498,7 @@ public final class TestXSSFWorkbook extends BaseTestXWorkbook {
             calcPr.setCalcId(100);
             assertTrue(wb.getForceFormulaRecalculation());
 
-            wb.setForceFormulaRecalculation(true); // resets the EngineId flag to zero
-            assertEquals(0, (int) calcPr.getCalcId());
+            wb.setForceFormulaRecalculation(false);
             assertFalse(wb.getForceFormulaRecalculation());
 
             // calcMode="manual" is unset when forceFormulaRecalculation=true
@@ -1142,5 +1141,26 @@ public final class TestXSSFWorkbook extends BaseTestXWorkbook {
         assertEquals(sheet2Name, wb.getNameAt(0));
 
         wb.close();
+    }
+    
+    /**
+     * See bug #61700
+     * @throws Exception
+     */
+    @Test
+    public void testWorkbookForceFormulaRecalculation() throws Exception {
+        Workbook workbook = _testDataProvider.createWorkbook();
+        workbook.createSheet().createRow(0).createCell(0).setCellFormula("B1+C1");
+        workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
+    
+        assertFalse(workbook.getForceFormulaRecalculation());
+        workbook.setForceFormulaRecalculation(true);
+        assertTrue(workbook.getForceFormulaRecalculation());
+    
+        Workbook wbBack = _testDataProvider.writeOutAndReadBack(workbook);
+        assertTrue(wbBack.getForceFormulaRecalculation());
+    
+        workbook.close();
+        wbBack.close();
     }
 }

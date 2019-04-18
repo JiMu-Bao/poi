@@ -36,6 +36,11 @@ import org.apache.poi.util.LittleEndianInput;
  * {@link POIFSFileSystem} instance.
  */
 public final class DocumentInputStream extends InputStream implements LittleEndianInput {
+
+    private static int SKIP_BUFFER_SIZE = 2048;
+
+    private static byte[] SKIP_BYTE_BUFFER = new byte[SKIP_BUFFER_SIZE];
+
     /** returned by read operations if we're at end of document */
     private static final int EOF = -1;
 
@@ -87,7 +92,7 @@ public final class DocumentInputStream extends InputStream implements LittleEndi
         DocumentProperty property = (DocumentProperty)doc.getProperty();
         _document = new POIFSDocument(
                 property, 
-                ((DirectoryNode)doc.getParent()).getNFileSystem()
+                ((DirectoryNode)doc.getParent()).getFileSystem()
         );
         _data = _document.getBlockIterator();
     }

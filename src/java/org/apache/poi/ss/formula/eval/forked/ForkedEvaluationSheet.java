@@ -62,6 +62,14 @@ final class ForkedEvaluationSheet implements EvaluationSheet {
         return _masterSheet.getLastRowNum();
     }
     
+    /* (non-Javadoc)
+     * @see org.apache.poi.ss.formula.EvaluationSheet#isRowHidden(int)
+     * @since POI 4.1.0
+     */
+    public boolean isRowHidden(int rowIndex) {
+        return _masterSheet.isRowHidden(rowIndex);
+    }
+    
     @Override
     public EvaluationCell getCell(int rowIndex, int columnIndex) {
         RowColKey key = new RowColKey(rowIndex, columnIndex);

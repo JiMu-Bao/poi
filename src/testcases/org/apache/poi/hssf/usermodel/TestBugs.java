@@ -2331,34 +2331,29 @@ public final class TestBugs extends BaseTestBugzillaIssues {
      * File with exactly 256 data blocks (+header block)
      * shouldn't break on POIFS loading
      */
-    @SuppressWarnings("resource")
     @Test
     public void bug51461() throws Exception {
         byte[] data = HSSFITestDataProvider.instance.getTestDataFileContent("51461.xls");
 
         HSSFWorkbook wbPOIFS = new HSSFWorkbook(new POIFSFileSystem(
                 new ByteArrayInputStream(data)).getRoot(), false);
-        HSSFWorkbook wbNPOIFS = new HSSFWorkbook(new POIFSFileSystem(
+        HSSFWorkbook wbPOIFS2 = new HSSFWorkbook(new POIFSFileSystem(
                 new ByteArrayInputStream(data)).getRoot(), false);
 
         assertEquals(2, wbPOIFS.getNumberOfSheets());
-        assertEquals(2, wbNPOIFS.getNumberOfSheets());
+        assertEquals(2, wbPOIFS2.getNumberOfSheets());
     }
 
-    /**
-     * Large row numbers and NPOIFS vs POIFS
-     */
-    @SuppressWarnings("resource")
     @Test
     public void bug51535() throws Exception {
         byte[] data = HSSFITestDataProvider.instance.getTestDataFileContent("51535.xls");
 
         HSSFWorkbook wbPOIFS = new HSSFWorkbook(new POIFSFileSystem(
                 new ByteArrayInputStream(data)).getRoot(), false);
-        HSSFWorkbook wbNPOIFS = new HSSFWorkbook(new POIFSFileSystem(
+        HSSFWorkbook wbPOIFS2 = new HSSFWorkbook(new POIFSFileSystem(
                 new ByteArrayInputStream(data)).getRoot(), false);
 
-        for (HSSFWorkbook wb : new HSSFWorkbook[]{wbPOIFS, wbNPOIFS}) {
+        for (HSSFWorkbook wb : new HSSFWorkbook[]{wbPOIFS, wbPOIFS2}) {
             assertEquals(3, wb.getNumberOfSheets());
 
             // Check directly
@@ -2932,7 +2927,7 @@ public final class TestBugs extends BaseTestBugzillaIssues {
         Workbook wb = HSSFTestDataSamples.openSampleWorkbook("46515.xls");
 
         // Get structure from webservice
-        String urlString = "http://poi.apache.org/resources/images/project-logo.jpg";
+        String urlString = "http://poi.apache.org/components/spreadsheet/images/calendar.jpg";
         URL structURL = new URL(urlString);
         BufferedImage bimage;
         try {
@@ -2978,6 +2973,7 @@ public final class TestBugs extends BaseTestBugzillaIssues {
         assertEquals(CellType.FORMULA, cell.getCellType());
         assertEquals("IF(TRUE,\"\",\"\")", cell.getCellFormula());
         assertEquals("", cell.getStringCellValue());
+        //noinspection deprecation
         cell.setCellType(CellType.STRING);
 
         assertEquals(CellType.BLANK, cell.getCellType());
@@ -3094,10 +3090,10 @@ public final class TestBugs extends BaseTestBugzillaIssues {
 
     @Test(expected = RuntimeException.class)
     public void test61300() throws Exception {
-        POIFSFileSystem npoifs = new POIFSFileSystem(HSSFTestDataSamples.openSampleFileStream("61300.xls"));
+        POIFSFileSystem poifs = new POIFSFileSystem(HSSFTestDataSamples.openSampleFileStream("61300.xls"));
 
         DocumentEntry entry =
-                (DocumentEntry) npoifs.getRoot().getEntry(SummaryInformation.DEFAULT_STREAM_NAME);
+                (DocumentEntry) poifs.getRoot().getEntry(SummaryInformation.DEFAULT_STREAM_NAME);
 
         // this will throw an Exception "RuntimeException: Can't read negative number of bytes"
         new PropertySet(new DocumentInputStream(entry));

@@ -67,12 +67,8 @@ import org.apache.poi.ss.formula.SheetNameFormatter;
 import org.apache.poi.ss.formula.udf.AggregatingUDFFinder;
 import org.apache.poi.ss.formula.udf.IndexedUDFFinder;
 import org.apache.poi.ss.formula.udf.UDFFinder;
-import org.apache.poi.ss.usermodel.Name;
-import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.usermodel.Row.MissingCellPolicy;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.SheetVisibility;
-import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.ss.util.WorkbookUtil;
 import org.apache.poi.util.Beta;
@@ -119,7 +115,7 @@ import org.openxmlformats.schemas.spreadsheetml.x2006.main.WorkbookDocument;
  * will construct whether they are reading or writing a workbook.  It is also the
  * top level object for creating new sheets/etc.
  */
-public class XSSFWorkbook extends POIXMLDocument implements Workbook {
+public class XSSFWorkbook extends POIXMLDocument implements Workbook, Date1904Support {
     private static final Pattern COMMA_PATTERN = Pattern.compile(",");
 
     /**
@@ -1854,7 +1850,8 @@ public class XSSFWorkbook extends POIXMLDocument implements Workbook {
      * @return true if the date systems used in the workbook starts in 1904
      */
     @Internal
-    public boolean isDate1904(){
+    @Override
+    public boolean isDate1904() {
         CTWorkbookPr workbookPr = workbook.getWorkbookPr();
         return workbookPr != null && workbookPr.getDate1904();
     }
@@ -2224,9 +2221,9 @@ public class XSSFWorkbook extends POIXMLDocument implements Workbook {
     public void setForceFormulaRecalculation(boolean value){
         CTWorkbook ctWorkbook = getCTWorkbook();
         CTCalcPr calcPr = ctWorkbook.isSetCalcPr() ? ctWorkbook.getCalcPr() : ctWorkbook.addNewCalcPr();
-        // when set to 0, will tell Excel that it needs to recalculate all formulas
+        // when set to true, will tell Excel that it needs to recalculate all formulas
         // in the workbook the next time the file is opened.
-        calcPr.setCalcId(0);
+        calcPr.setFullCalcOnLoad(value);
 
         if(value && calcPr.getCalcMode() == STCalcMode.MANUAL) {
             calcPr.setCalcMode(STCalcMode.AUTO);
@@ -2242,7 +2239,7 @@ public class XSSFWorkbook extends POIXMLDocument implements Workbook {
     public boolean getForceFormulaRecalculation(){
         CTWorkbook ctWorkbook = getCTWorkbook();
         CTCalcPr calcPr = ctWorkbook.getCalcPr();
-        return calcPr != null && calcPr.getCalcId() != 0;
+        return calcPr != null && calcPr.isSetFullCalcOnLoad() && calcPr.getFullCalcOnLoad();
     }
 
 

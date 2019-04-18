@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.OldFileFormatException;
@@ -62,7 +63,7 @@ public class WorkbookFactory {
     }
 
     /**
-     * Creates a HSSFWorkbook from the given NPOIFSFileSystem<p>
+     * Creates a HSSFWorkbook from the given POIFSFileSystem<p>
      *
      * Note that in order to properly release resources the
      * Workbook should be closed after use.
@@ -78,7 +79,7 @@ public class WorkbookFactory {
     }
 
     /**
-     * Creates a Workbook from the given NPOIFSFileSystem, which may
+     * Creates a Workbook from the given POIFSFileSystem, which may
      *  be password protected
      *
      *  @param fs The {@link POIFSFileSystem} to read the document from
@@ -94,7 +95,7 @@ public class WorkbookFactory {
 
 
     /**
-     * Creates a Workbook from the given NPOIFSFileSystem.
+     * Creates a Workbook from the given DirectoryNode.
      *
      * @param root The {@link DirectoryNode} to start reading the document from
      *
@@ -108,7 +109,7 @@ public class WorkbookFactory {
 
 
     /**
-     * Creates a Workbook from the given NPOIFSFileSystem, which may
+     * Creates a Workbook from the given DirectoryNode, which may
      * be password protected
      *
      * @param root The {@link DirectoryNode} to start reading the document from
@@ -351,8 +352,8 @@ public class WorkbookFactory {
                 throw new IOException(t.getMessage(), t);
             }
         } catch (Exception e) {
-            throw new IOException(e);
+            throw new IOException("While trying to invoke 'createWorkbook' on factory " + factoryClass +
+                    " and arguments " + Arrays.toString(args), e);
         }
     }
-
 }

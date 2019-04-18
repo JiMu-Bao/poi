@@ -42,13 +42,13 @@ under the License.
 
     <description>The Apache POI project Ant build.</description>
 
-    <property name="version.id" value="4.1.0"/>
+    <property name="version.id" value="4.1.1-SNAPSHOT"/>
     <property name="release.rc" value="RC1"/>
 
     <property environment="env"/>
     <!-- the repository to download jars from -->
     <property name="repository.m2" value="https://repo1.maven.org"/>
-    <property name="repository.pentaho" value="http://repo.pentaho.org/"/>
+    <property name="repository.pentaho" value="https://nexus.pentaho.org/"/>
 
     <property name="main.lib" location="lib"/>
     <property name="ooxml.lib" location="ooxml-lib"/>
@@ -66,12 +66,12 @@ under the License.
 
     <!-- add addOpens parameter for Java 9 and higher -->
     <condition property="addOpens">
-        <not><matches pattern="1\..*" string="${java.version}"/></not>
+        <not><matches pattern="^1\..*" string="${java.version}"/></not>
     </condition>
 
     <!-- add addOpens parameter for Java 10 -->
     <condition property="addOpens10">
-        <matches pattern="10\..*" string="${java.version}"/>
+        <matches pattern="^10\..*" string="${java.version}"/>
     </condition>
 
 
@@ -172,9 +172,9 @@ under the License.
     <property name="main.commons-logging.jar" location="${main.lib}/commons-logging-1.2.jar"/>
     <property name="main.commons-logging.url"
               value="${repository.m2}/maven2/commons-logging/commons-logging/1.2/commons-logging-1.2.jar"/>
-    <property name="main.commons-codec.jar" location="${main.lib}/commons-codec-1.11.jar"/>
+    <property name="main.commons-codec.jar" location="${main.lib}/commons-codec-1.12.jar"/>
     <property name="main.commons-codec.url"
-              value="${repository.m2}/maven2/commons-codec/commons-codec/1.11/commons-codec-1.11.jar"/>
+              value="${repository.m2}/maven2/commons-codec/commons-codec/1.12/commons-codec-1.12.jar"/>
     <property name="main.log4j.jar" location="${main.lib}/log4j-1.2.17.jar"/>
     <property name="main.log4j.url" value="${repository.m2}/maven2/log4j/log4j/1.2.17/log4j-1.2.17.jar"/>
     <property name="main.junit.jar" location="${main.lib}/junit-4.12.jar"/>
@@ -200,9 +200,9 @@ under the License.
     <property name="main.ant.url" value="${repository.m2}/maven2/org/apache/ant/ant/1.10.1/ant-1.10.1.jar"/>
     <property name="main.antlauncher.jar" location="${main.lib}/ant-launcher-1.10.1.jar"/>
     <property name="main.antlauncher.url" value="${repository.m2}/maven2/org/apache/ant/ant-launcher/1.10.1/ant-launcher-1.10.1.jar"/>
-    <property name="main.commons-collections4.jar" location="${main.lib}/commons-collections4-4.2.jar"/>
+    <property name="main.commons-collections4.jar" location="${main.lib}/commons-collections4-4.3.jar"/>
     <property name="main.commons-collections4.url"
-              value="${repository.m2}/maven2/org/apache/commons/commons-collections4/4.2/commons-collections4-4.2.jar"/>
+              value="${repository.m2}/maven2/org/apache/commons/commons-collections4/4.3/commons-collections4-4.3.jar"/>
     <property name="main.commons-math3.jar" location="${main.lib}/commons-math3-3.6.1.jar"/>
     <property name="main.commons-math3.url"
               value="${repository.m2}/maven2/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar"/>
@@ -220,30 +220,30 @@ under the License.
               value="${repository.m2}/maven2/javax/activation/activation/1.1.1/activation-1.1.1.jar"/>
 
     <!-- xml signature libs -->
-    <property name="dsig.xmlsec.jar" location="${compile.lib}/xmlsec-2.1.0.jar"/>
-    <property name="dsig.xmlsec.url" value="${repository.m2}/maven2/org/apache/santuario/xmlsec/2.1.0/xmlsec-2.1.0.jar"/>
-    <property name="dsig.bouncycastle-prov.jar" location="${compile.lib}/bcprov-ext-jdk15on-1.60.jar"/>
-    <property name="dsig.bouncycastle-prov.url" value="${repository.m2}/maven2/org/bouncycastle/bcprov-ext-jdk15on/1.60/bcprov-ext-jdk15on-1.60.jar"/>
-    <property name="dsig.bouncycastle-pkix.jar" location="${compile.lib}/bcpkix-jdk15on-1.60.jar"/>
-    <property name="dsig.bouncycastle-pkix.url" value="${repository.m2}/maven2/org/bouncycastle/bcpkix-jdk15on/1.60/bcpkix-jdk15on-1.60.jar"/>
-    <property name="dsig.sl4j-api.jar" location="${compile.lib}/slf4j-api-1.7.25.jar"/>
-    <property name="dsig.sl4j-api.url" value="${repository.m2}/maven2/org/slf4j/slf4j-api/1.7.25/slf4j-api-1.7.25.jar"/>
+    <property name="dsig.xmlsec.jar" location="${compile.lib}/xmlsec-2.1.2.jar"/>
+    <property name="dsig.xmlsec.url" value="${repository.m2}/maven2/org/apache/santuario/xmlsec/2.1.2/xmlsec-2.1.2.jar"/>
+    <property name="dsig.bouncycastle-prov.jar" location="${compile.lib}/bcprov-ext-jdk15on-1.61.jar"/>
+    <property name="dsig.bouncycastle-prov.url" value="${repository.m2}/maven2/org/bouncycastle/bcprov-ext-jdk15on/1.61/bcprov-ext-jdk15on-1.61.jar"/>
+    <property name="dsig.bouncycastle-pkix.jar" location="${compile.lib}/bcpkix-jdk15on-1.61.jar"/>
+    <property name="dsig.bouncycastle-pkix.url" value="${repository.m2}/maven2/org/bouncycastle/bcpkix-jdk15on/1.61/bcpkix-jdk15on-1.61.jar"/>
+    <property name="dsig.sl4j-api.jar" location="${compile.lib}/slf4j-api-1.7.26.jar"/>
+    <property name="dsig.sl4j-api.url" value="${repository.m2}/maven2/org/slf4j/slf4j-api/1.7.26/slf4j-api-1.7.26.jar"/>
 
     <!-- svg/batik libs - not part of the distribution -->
-    <property name="svg.batik-all.url" value="${repository.m2}/maven2/org/apache/xmlgraphics/batik-all/1.10/batik-all-1.10.jar"/>
-    <property name="svg.batik-all.jar" value="${compile.lib}/batik-all-1.10.jar"/>
+    <property name="svg.batik-all.url" value="${repository.m2}/maven2/org/apache/xmlgraphics/batik-all/1.11/batik-all-1.11.jar"/>
+    <property name="svg.batik-all.jar" value="${compile.lib}/batik-all-1.11.jar"/>
     <property name="svg.xml-apis-ext.url" value="${repository.m2}/maven2/xml-apis/xml-apis-ext/1.3.04/xml-apis-ext-1.3.04.jar"/>
     <property name="svg.xml-apis-ext.jar" value="${compile.lib}/xml-apis-ext-1.3.04.jar"/>
     <property name="svg.xmlgraphics-commons.url" value="${repository.m2}/maven2/org/apache/xmlgraphics/xmlgraphics-commons/2.3/xmlgraphics-commons-2.3.jar"/>
     <property name="svg.xmlgraphics-commons.jar" value="${compile.lib}/xmlgraphics-commons-2.3.jar"/>
 
     <!-- jars in the ooxml-lib directory, see the fetch-ooxml-jars target-->
-    <property name="ooxml.curvesapi.jar" location="${ooxml.lib}/curvesapi-1.05.jar"/>
+    <property name="ooxml.curvesapi.jar" location="${ooxml.lib}/curvesapi-1.06.jar"/>
     <property name="ooxml.curvesapi.url"
-              value="${repository.m2}/maven2/com/github/virtuald/curvesapi/1.05/curvesapi-1.05.jar"/>
-    <property name="ooxml.xmlbeans.jar" location="${ooxml.lib}/xmlbeans-3.0.2.jar"/>
+              value="${repository.m2}/maven2/com/github/virtuald/curvesapi/1.06/curvesapi-1.06.jar"/>
+    <property name="ooxml.xmlbeans.jar" location="${ooxml.lib}/xmlbeans-3.1.0.jar"/>
     <property name="ooxml.xmlbeans.url"
-              value="https://repository.apache.org/content/repositories/releases/org/apache/xmlbeans/xmlbeans/3.0.2/xmlbeans-3.0.2.jar"/>
+              value="https://repository.apache.org/content/repositories/releases/org/apache/xmlbeans/xmlbeans/3.1.0/xmlbeans-3.1.0.jar"/>
     <property name="ooxml.commons-compress.jar" location="${main.lib}/commons-compress-1.18.jar"/>
     <property name="ooxml.commons-compress.url"
               value="${repository.m2}/maven2/org/apache/commons/commons-compress/1.18/commons-compress-1.18.jar"/>
@@ -260,14 +260,14 @@ under the License.
               value="${repository.m2}/maven2/org/javassist/javassist/3.21.0-GA/javassist-3.21.0-GA.jar"/>
 
     <!-- coverage libs -->
-    <property name="jacoco.zip" location="${main.lib}/jacoco-0.8.2.zip"/>
-    <property name="jacoco.url" value="${repository.m2}/maven2/org/jacoco/jacoco/0.8.2/jacoco-0.8.2.zip"/>
-    <property name="asm.jar" location="${main.lib}/asm-6.2.1.jar"/>
-    <property name="asm.url" value="${repository.m2}/maven2/org/ow2/asm/asm/6.2.1/asm-6.2.1.jar"/>
-    <property name="asmcommons.jar" location="${main.lib}/asm-commons-6.2.1.jar"/>
-    <property name="asmcommons.url" value="${repository.m2}/maven2/org/ow2/asm/asm-commons/6.2.1/asm-commons-6.2.1.jar"/>
-    <property name="asmtree.jar" location="${main.lib}/asm-tree-6.2.1.jar"/>
-    <property name="asmtree.url" value="${repository.m2}/maven2/org/ow2/asm/asm-tree/6.2.1/asm-tree-6.2.1.jar"/>
+    <property name="jacoco.zip" location="${main.lib}/jacoco-0.8.3.zip"/>
+    <property name="jacoco.url" value="${repository.m2}/maven2/org/jacoco/jacoco/0.8.3/jacoco-0.8.3.zip"/>
+    <property name="asm.jar" location="${main.lib}/asm-7.0.jar"/>
+    <property name="asm.url" value="${repository.m2}/maven2/org/ow2/asm/asm/7.0/asm-7.0.jar"/>
+    <property name="asmcommons.jar" location="${main.lib}/asm-commons-7.0.jar"/>
+    <property name="asmcommons.url" value="${repository.m2}/maven2/org/ow2/asm/asm-commons/7.0/asm-commons-7.0.jar"/>
+    <property name="asmtree.jar" location="${main.lib}/asm-tree-7.0.jar"/>
+    <property name="asmtree.url" value="${repository.m2}/maven2/org/ow2/asm/asm-tree/7.0/asm-tree-7.0.jar"/>
 
     <!-- license and api checks -->
     <property name="rat.jar" location="${main.lib}/apache-rat-0.12.jar"/>
@@ -322,19 +322,22 @@ under the License.
     <property name="halt.on.test.failure" value="true"/>
 
     <!-- helper jars for pgp signing, building and nexus staging -->
-    <property name="dist.bouncycastle-prov.jar" location="${compile.lib}/bcprov-ext-jdk15on-1.60.jar"/>
-    <property name="dist.bouncycastle-prov.url" value="${repository.m2}/maven2/org/bouncycastle/bcprov-ext-jdk15on/1.60/bcprov-ext-jdk15on-1.60.jar"/>
-    <property name="dist.bouncycastle-bcpg.jar" location="${compile.lib}/bcpg-jdk15on-1.60.jar"/>
-    <property name="dist.bouncycastle-bcpg.url" value="${repository.m2}/maven2/org/bouncycastle/bcpg-jdk15on/1.60/bcpg-jdk15on-1.60.jar"/>
+    <property name="dist.bouncycastle-prov.jar" location="${compile.lib}/bcprov-ext-jdk15on-1.61.jar"/>
+    <property name="dist.bouncycastle-prov.url" value="${repository.m2}/maven2/org/bouncycastle/bcprov-ext-jdk15on/1.61/bcprov-ext-jdk15on-1.61.jar"/>
+    <property name="dist.bouncycastle-bcpg.jar" location="${compile.lib}/bcpg-jdk15on-1.61.jar"/>
+    <property name="dist.bouncycastle-bcpg.url" value="${repository.m2}/maven2/org/bouncycastle/bcpg-jdk15on/1.61/bcpg-jdk15on-1.61.jar"/>
     <property name="dist.commons-openpgp.jar" location="${compile.lib}/commons-openpgp-1.0-SNAPSHOT.jar"/>
-    <property name="dist.commons-openpgp.url" value="https://repository.apache.org/snapshots/org/apache/commons/commons-openpgp/1.0-SNAPSHOT/commons-openpgp-1.0-20140717.171036-11.jar"/>
+    <property name="dist.commons-openpgp.url" value="https://repository.apache.org/content/groups/snapshots/org/apache/commons/commons-openpgp/1.0-SNAPSHOT/commons-openpgp-1.0-20190121.221905-12.jar"/>
     <property name="dist.nexus-staging.jar" location="${compile.lib}/nexus-staging-ant-tasks-1.6.3-uber.jar"/>
     <property name="dist.nexus-staging.url" value="${repository.m2}/maven2/org/sonatype/nexus/ant/nexus-staging-ant-tasks/1.6.3/nexus-staging-ant-tasks-1.6.3-uber.jar"/>
+    <!-- jars required for maven helper targets -->
+    <property name="maven.ant.url" value="${repository.m2}/maven2/org/apache/maven/maven-ant-tasks/2.1.3/maven-ant-tasks-2.1.3.jar"/>
+    <property name="maven.ant.jar" value="${compile.lib}/maven-ant-tasks-2.1.3.jar"/>
 
     <property name="dist.svnant.zip" location="${compile.lib}/svnant/svnant-1.3.1.zip"/>
     <property name="dist.svnant.url" value="http://subclipse.tigris.org/files/documents/906/49042/svnant-1.3.1.zip"/>
     <property name="dist.svnclient.jar" location="${compile.lib}/svnant/svnClientAdapter-1.3.0.jar"/>
-    <property name="dist.svnclient.url" value="${repository.pentaho}/content/groups/omni/tigris/svnClientAdapter/svnant-1.3.0/svnClientAdapter-svnant-1.3.0.jar"/>
+    <property name="dist.svnclient.url" value="http://repository.transtep.com/repository/thirdparty/ant/svnant-1.3.0/lib/svnClientAdapter.jar"/>
     <property name="dist.svnkit.jar" location="${compile.lib}/svnant/svnkit-1.8.11.jar"/>
     <property name="dist.svnkit.url" value="${repository.m2}/maven2/org/tmatesoft/svnkit/svnkit/1.8.11/svnkit-1.8.11.jar"/>
     <property name="dist.svnkit-javahl16.jar" location="${compile.lib}/svnant/svnkit-javahl16-1.8.11.jar"/>
@@ -641,38 +644,28 @@ under the License.
                 <include name="asm-all-4*"/>
                 <include name="asm-all-5.0.3*"/>
                 <include name="asm-all-5.2*"/>
-                <include name="asm*-6.0*"/>
+                <include name="asm*-6.*"/>
                 <include name="commons-codec-1.5*"/>
                 <include name="commons-codec-1.9*"/>
                 <include name="commons-codec-1.10*"/>
+                <include name="commons-codec-1.11*"/>
                 <include name="commons-compress-1.16*"/>
                 <include name="commons-compress-1.17*"/>
                 <include name="commons-collections4-4.1*"/>
+                <include name="commons-collections4-4.2*"/>
                 <include name="commons-logging-1.1*.jar"/>
                 <include name="findbugs-noUpdateChecks-2.0.3*"/>
                 <include name="jacoco-0.6*"/>
-                <include name="jacoco-0.7.1*"/>
-                <include name="jacoco-0.7.2*"/>
-                <include name="jacoco-0.7.3*"/>
-                <include name="jacoco-0.7.4*"/>
-                <include name="jacoco-0.7.6*"/>
-                <include name="jacoco-0.7.7*"/>
-                <include name="jacoco-0.7.8*"/>
-                <include name="jacoco-0.7.9*"/>
+                <include name="jacoco-0.7*"/>
                 <include name="jacoco-0.8.1*"/>
+                <include name="jacoco-0.8.2*"/>
                 <include name="jmh-core-1.15*"/>
                 <include name="jmh-generator-annprocess-1.15*"/>
                 <include name="log4j-1.2.13*"/>
-                <include name="org.jacoco.*-0.6.*"/>
-                <include name="org.jacoco.*-0.7.1*"/>
-                <include name="org.jacoco.*-0.7.2*"/>
-                <include name="org.jacoco.*-0.7.3*"/>
-                <include name="org.jacoco.*-0.7.4*"/>
-                <include name="org.jacoco.*-0.7.6*"/>
-                <include name="org.jacoco.*-0.7.7*"/>
-                <include name="org.jacoco.*-0.7.8*"/>
-                <include name="org.jacoco.*-0.7.9*"/>
+                <include name="org.jacoco.*-0.6*"/>
+                <include name="org.jacoco.*-0.7**"/>
                 <include name="org.jacoco.*-0.8.1*"/>
+                <include name="org.jacoco.*-0.8.2*"/>
                 <include name="dom4j*"/>
                 <include name="apache-rat-0.10*"/>
                 <include name="xercesImpl-*.jar"/>
@@ -691,6 +684,7 @@ under the License.
             </fileset>
             <fileset dir="${ooxml.lib}">
                 <!-- remove jars from previous versions, but not the current version -->
+                <include name="commons-collections4-4.1*"/>
                 <include name="ooxml-schemas-src-1.1.jar"/>
                 <include name="ooxml-schemas-1.1-sources.jar"/>
                 <include name="ooxml-schemas-1.1.jar"/>
@@ -702,18 +696,20 @@ under the License.
                 <include name="ooxml-security-1.0.jar"/>
                 <include name="curvesapi-1.03.jar"/>
                 <include name="curvesapi-1.04.jar"/>
+                <include name="curvesapi-1.05.jar"/>
                 <include name="xmlbeans-2.*.jar"/>
-                <include name="xmlbeans-3.0.0.jar"/>
-                <include name="xmlbeans-3.0.1.jar"/>
+                <include name="xmlbeans-3.0*.jar"/>
             </fileset>
             <fileset dir="${compile.lib}">
                 <include name="xercesImpl-*.jar"/>
-                <include name="xmlsec-2.0.1.jar"/>
-                <include name="xmlsec-2.0.5.jar"/>
-                <include name="xmlsec-2.0.6.jar"/>
+                <include name="xmlsec-2.0*.jar"/>
+                <include name="xmlsec-2.1.0.jar"/>
                 <include name="bc*jdk15on-1.5*.jar"/>
+                <include name="bc*jdk15on-1.60*.jar"/>
+                <include name="batik-all-1.10.jar"/>
                 <include name="slf4j-api-1.7.7.jar"/>
                 <include name="slf4j-api-1.7.12.jar"/>
+                <include name="slf4j-api-1.7.25.jar"/>
             </fileset>
         </delete>
 
@@ -1242,11 +1238,14 @@ under the License.
                     <jvmarg value="-Xmx@{heap}M"/>
                     <jvmarg value="-ea"/>
 
-                    <!-- some "add-opens" and other properties are needed when running with Java 9 or newer -->
+                    <!-- some "add-opens" are needed for Java 10, but not for 11+ -->
                     <jvmarg value="--add-modules=java.xml.bind" if:true="${addOpens10}" />
                     <jvmarg value="--add-opens=java.base/java.lang=java.xml.bind" if:true="${addOpens10}" />
 
-                    <jvmarg value="-Dsun.reflect.debugModuleAccessChecks=true" if:true="${addOpens}" />
+                    <!-- some "add-opens" and other properties are needed when running with Java 9 or newer -->
+                    <sysproperty key="sun.reflect.debugModuleAccessChecks" value="true" if:true="${addOpens}" />
+                    <sysproperty key="com.sun.xml.bind.v2.bytecode.ClassTailor.noOptimize" value="true" if:true="${addOpens}" />
+                    <jvmarg value="--illegal-access=warn" if:true="${addOpens}" />
                     <jvmarg value="--add-opens=java.xml/com.sun.org.apache.xerces.internal.util=ALL-UNNAMED" if:true="${addOpens}" />
                     <jvmarg value="--add-opens=java.base/java.io=ALL-UNNAMED" if:true="${addOpens}" />
                     <jvmarg value="--add-opens=java.base/java.nio=ALL-UNNAMED" if:true="${addOpens}" />
@@ -2133,18 +2132,20 @@ under the License.
     </target>
 
     <!-- continuous integration targets -->
-    <target name="jenkins" depends="compile, test-all, jar, javadocs, assemble, findbugs, release-notes, rat-check, forbidden-apis-check"
+    <target name="jenkins"
+        depends="replaceVersion, compile, test-all, jar, javadocs, assemble, findbugs, release-notes, rat-check, forbidden-apis-check, integration-test-jar, help, fetch-svn-jars, maven-poms, maventask, mvn-install"
         description="Target run by Jenkins on a continuous basis. Builds and tests POI, generates artifacts and documentation, and searches for problems."/>
 
-    <available property="maven.ant.tasks.present" classname="org.apache.maven.artifact.ant.Pom"/>
-    <target name="maven.ant.tasks-check">
-      <fail unless="maven.ant.tasks.present">
-      Maven ant tasks not found.
-      Please make sure the maven-ant-tasks jar is in ANT_HOME/lib, or made
-      available to Ant using other mechanisms like -lib or CLASSPATH.
+    <target name="maventask" depends="init">
+        <downloadfile src="${maven.ant.url}" dest="${maven.ant.jar}"/>
 
-      You can download the Maven Ant Tasks from https://maven.apache.org/ant-tasks/download.html
-      </fail>
+        <path id="maven-ant-tasks.classpath">
+            <pathelement location="${maven.ant.jar}"/>
+        </path>
+
+        <taskdef uri="antlib:org.apache.maven.artifact.ant" resource="org/apache/maven/artifact/ant/antlib.xml">
+            <classpath refid="maven-ant-tasks.classpath"/>
+        </taskdef>
     </target>
 
     <macrodef name="m2-install">
@@ -2157,7 +2158,7 @@ under the License.
       </sequential>
     </macrodef>
 
-    <target name="mvn-install" depends="maven.ant.tasks-check,jar,maven-poms" description="Install POI artifacts into the local repository. Equivalent of 'mvn install'">
+    <target name="mvn-install" depends="maventask,jar,maven-poms" description="Install POI artifacts into the local repository. Equivalent of 'mvn install'">
       <m2-install artifactId="poi"/>
       <m2-install artifactId="poi-scratchpad"/>
       <m2-install artifactId="poi-ooxml"/>
@@ -2321,6 +2322,9 @@ under the License.
             <auxClasspath path="${main.xmlbind-impl.jar}" />
             <auxClasspath path="${main.xmlbind-core.jar}" />
             <auxClasspath path="${main.activation.jar}" />
+            <auxClasspath path="${svg.batik-all.jar}"/>
+            <auxClasspath path="${svg.xml-apis-ext.jar}"/>
+            <auxClasspath path="${svg.xmlgraphics-commons.jar}"/>
             <sourcePath path="src/java" />
             <sourcePath path="src/ooxml/java" />
             <sourcePath path="src/scratchpad/src" />
@@ -2618,7 +2622,7 @@ under the License.
     </target>
 
     <target name="release-prep2" depends="init" description="compile the freshly checked out svn tag and upload it to the nexus - needs a JDK6">
-        <!-- JAVA_HOME needs to point to a JDK6, otherwise the ant invocation is failing on a missing javac -->
+        <!-- JAVA_HOME needs to point to a JDK8, otherwise the ant invocation is failing on a missing javac -->
         <fail message="Environment needs to point to a Java 8 JDK">
             <condition>
                 <not><equals arg1="${ant.java.version}" arg2="1.8"/></not>
@@ -2850,4 +2854,28 @@ under the License.
     <target name="test-env" description="tests if ant is available on the jenkins slave">
       <echo>Using Ant: ${ant.version} from ${ant.home}</echo>    
     </target>
+
+	<target name="replaceVersion" description="Apply the version from build.xml in all other places">
+		<replaceregexp
+               match="(packaging>\n\s*&lt;version>)[0-9.]+(?:-SNAPSHOT)?"
+               replace="\1${version.id}">
+			<fileset dir="sonar">
+				<include name="**/pom.xml"/>
+			</fileset>
+        </replaceregexp>
+		<replaceregexp
+               match="(poi-parent&lt;/artifactId>\n\s*&lt;version>)[0-9.]+(?:-SNAPSHOT)?"
+               replace="\1${version.id}">
+			<fileset dir="sonar">
+				<include name="**/pom.xml"/>
+			</fileset>
+        </replaceregexp>
+		<replaceregexp
+               match=" version = '[0-9.]+(?:-SNAPSHOT)?'"
+               replace=" version = '${version.id}'">
+			<fileset dir=".">
+				<include name="build.gradle"/>
+			</fileset>
+        </replaceregexp>
+	</target>
 </project>

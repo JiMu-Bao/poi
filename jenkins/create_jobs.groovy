@@ -38,10 +38,7 @@ def poijobs = [
         ],
         [ name: 'POI-DSL-1.13', jdk: '1.13', trigger: triggerSundays, skipcigame: true,
           // Nodes beam* do not yet have JDK 13 installed
-          slaveAdd: '&&!beam1&&!beam2&&!beam3&&!beam4&&!beam6&&!beam7&&!beam8&&!beam9&&!beam10&&!beam11&&!beam12&&!beam13&&!beam14&&!beam15&&!beam16',
-          properties: [// JaCoCo currently fails with "java.lang.NoSuchFieldException: $jacocoAccess",
-                       // need to review/check with newer JDK 13 builds or when at least JaCoCo 0.8.3
-                       '-Dcoverage.enabled=false']
+          slaveAdd: '&&!beam1&&!beam2&&!beam3&&!beam4&&!beam6&&!beam7&&!beam8&&!beam9&&!beam10&&!beam11&&!beam12&&!beam13&&!beam14&&!beam15&&!beam16'
         ],
         [ name: 'POI-DSL-IBM-JDK', jdk: 'IBMJDK', trigger: triggerSundays, skipcigame: true
         ],
@@ -54,8 +51,7 @@ def poijobs = [
         ],
         [ name: 'POI-DSL-regenerate-javadoc', trigger: triggerSundays, javadoc: true
         ],
-        // disabled for 4.0.0 because we break compatibility on-purpose in a few places, e.g. for Java 9 compatibility
-        [ name: 'POI-DSL-API-Check', trigger: '@daily', apicheck: true, disabled: true
+        [ name: 'POI-DSL-API-Check', trigger: '@daily', apicheck: true
         ],
         [ name: 'POI-DSL-Gradle', trigger: triggerSundays, email: 'centic@apache.org', gradle: true,
           // Gradle will not run any tests if the code is up-to-date, therefore manually mark the files as updated
@@ -86,6 +82,9 @@ def xmlbeansjobs = [
         ],
         [ name: 'POI-XMLBeans-DSL-1.11', jdk: '1.11', trigger: triggerSundays, skipcigame: true,
                 disabled: true // XMLBeans does not yet compile with Java 11
+        ],
+        [ name: 'POI-XMLBeans-DSL-1.12', jdk: '1.12', trigger: triggerSundays, skipcigame: true,
+                disabled: true // XMLBeans does not yet compile with Java 11
         ]
 ]
 
@@ -98,7 +97,10 @@ def defaultEmail = 'dev@poi.apache.org'
 def defaultAnt = 'Ant 1.9.9'
 // currently a lot of H?? slaves don't have Ant installed ... H21 seems to have a SVN problem
 // H35 fails with ImageIO create cache file errors, although the java.io.tmpdir is writable
-def defaultSlaves = '(ubuntu||beam)&&!cloud-slave&&!H15&&!H17&&!H18&&!H24&&!ubuntu-4&&!H21&&!H35'
+def defaultSlaves = '(ubuntu||beam)&&!cloud-slave&&!H15&&!H17&&!H18&&!H24&&!ubuntu-4&&!H21&&!H35' +
+        // Disable all apache-beam-* nodes as they seem to lack svn and Ant installations currently
+        '&&!apache-beam-jenkins-1&&!apache-beam-jenkins-2&&!apache-beam-jenkins-4&&!apache-beam-jenkins-7' +
+        '&&!apache-beam-jenkins-8&&!apache-beam-jenkins-9'
 
 def jdkMapping = [
         '1.6': 'JDK 1.6 (latest)',
@@ -153,7 +155,7 @@ def sonarDesc = '''
 
 def shellCmdsUnix =
         '''# show which files are currently modified in the working copy
-svn status
+svn status || true
 
 # print out information about which exact version of java we are using
 echo Java-Home: $JAVA_HOME
@@ -168,6 +170,12 @@ java -version
 echo which javac
 which javac
 javac -version
+
+echo Ant-Home: $ANT_HOME
+ls -al $ANT_HOME
+echo which ant
+which ant
+ant -version
 
 echo '<project default="test"><target name="test"><echo>Java ${ant.java.version}/${java.version}</echo><exec executable="javac"><arg value="-version"/></exec></target></project>' > build.javacheck.xml
 ant -f build.javacheck.xml -v
@@ -479,7 +487,10 @@ xmlbeansjobs.each { xjob ->
                 // when using JDK 9/10 for running Ant, we need to provide more modules for the forbidden-api-checks task
                 // on JDK 11 and newer there is no such module any more, so do not add it here
                 env('ANT_OPTS', '--add-modules=java.xml.bind --add-opens=java.xml/com.sun.org.apache.xerces.internal.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED')
+            } else if (jdkKey == '1.11' || jdkKey == '1.12' || jdkKey == '1.13') {
+                env('ANT_OPTS', '--add-opens=java.xml/com.sun.org.apache.xerces.internal.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED')
             }
+            // will be needed for forbidden-apis-check: env('ANT_HOME', xjob.windows ? 'f:\\jenkins\\tools\\ant\\latest' : '/usr/share/ant')
             env('FORREST_HOME', xjob.windows ? 'f:\\jenkins\\tools\\forrest\\latest' : '/home/jenkins/tools/forrest/latest')
         }
         wrappers {
@@ -515,16 +526,21 @@ xmlbeansjobs.each { xjob ->
                 antInstallation(antRT)
             }
             ant {
-                targets(['test'])
-                antInstallation(antRT)
-            }
-            ant {
-                targets(['package'])
+                targets(['jenkins'])
                 antInstallation(antRT)
             }
         }
         publishers {
             archiveArtifacts('build/**')
+
+            warnings(['Java Compiler (javac)', 'JavaDoc Tool'], null) {
+                resolveRelativePaths()
+            }
+            archiveJunit('build/test-results/TEST-*.xml') {
+                testDataPublishers {
+                    publishTestStabilityData()
+                }
+            }
 
             if (!xjob.skipcigame) {
                 configure { project ->
@@ -584,7 +600,8 @@ Unfortunately we often see builds break because of changes/new machines...''')
                 runner('DontRun')
                 steps {
                     shell(
-'''which javac
+'''which svn || true
+which javac
 javac -version
 echo '<?xml version="1.0"?><project name="POI Build" default="test"><target name="test"><echo>Using Ant: ${ant.version} from ${ant.home}</echo></target></project>' > build.xml
 ''')

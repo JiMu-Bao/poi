@@ -28,11 +28,9 @@ import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.text.DateFormat;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.poi.hssf.HSSFTestDataSamples;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -586,8 +584,7 @@ public class TestDataFormatter {
         DataFormatter dfUS = new DataFormatter(Locale.US, true);
 
         // Create a spreadsheet with some formula errors in it
-        Workbook wb = new HSSFWorkbook();
-        try {
+        try (Workbook wb = new HSSFWorkbook()) {
             Sheet s = wb.createSheet();
             Row r = s.createRow(0);
             Cell c = r.createCell(0, CellType.ERROR);
@@ -597,8 +594,6 @@ public class TestDataFormatter {
 
             c.setCellErrorValue(FormulaError.REF.getCode());
             assertEquals(FormulaError.REF.getString(), dfUS.formatCellValue(c));
-        } finally {
-            wb.close();
         }
     }
 
@@ -607,8 +602,7 @@ public class TestDataFormatter {
         DataFormatter formatter = new DataFormatter();
 
         // Create a spreadsheet with some TRUE/FALSE boolean values in it
-        Workbook wb = new HSSFWorkbook();
-        try {
+        try (Workbook wb = new HSSFWorkbook()) {
             Sheet s = wb.createSheet();
             Row r = s.createRow(0);
             Cell c = r.createCell(0);
@@ -618,8 +612,6 @@ public class TestDataFormatter {
 
             c.setCellValue(false);
             assertEquals("FALSE", formatter.formatCellValue(c));
-        } finally {
-            wb.close();
         }
     }
 
@@ -787,8 +779,7 @@ public class TestDataFormatter {
     }
 
     private static void assertFormatsTo(String expected, double input) throws IOException {
-        Workbook wb = new HSSFWorkbook();
-        try {
+        try (Workbook wb = new HSSFWorkbook()) {
             Sheet s1 = wb.createSheet();
             Row row = s1.createRow(0);
             Cell rawValue = row.createCell(0);
@@ -798,9 +789,6 @@ public class TestDataFormatter {
             newStyle.setDataFormat(dataFormat.getFormat("General"));
             String actual = new DataFormatter().formatCellValue(rawValue);
             assertEquals(expected, actual);
-        }
-        finally {
-            wb.close();
         }
     }
 
@@ -837,7 +825,7 @@ public class TestDataFormatter {
     }
 
     @Test
-    public void testFormatWithTrailingDotsOtherLocale() throws Exception {
+    public void testFormatWithTrailingDotsOtherLocale() {
         DataFormatter dfIT = new DataFormatter(Locale.ITALY);
         assertEquals("1.000.000", dfIT.formatRawCellContents(1000000, -1, "#,##0"));
         assertEquals("1.000", dfIT.formatRawCellContents(1000000, -1, "#,##0,"));
@@ -894,7 +882,7 @@ public class TestDataFormatter {
      */
     @Test
     public void testSimpleNumericFormatsInGermanyLocale() {
-        List<Locale> locales = Arrays.asList(new Locale[] {Locale.GERMANY, Locale.US, Locale.ROOT} );
+        Locale[] locales = new Locale[] {Locale.GERMANY, Locale.US, Locale.ROOT};
         for (Locale locale : locales) {
             //show that LocaleUtil has no effect on these tests
             LocaleUtil.setUserLocale(locale);
@@ -938,4 +926,83 @@ public class TestDataFormatter {
         String value = df.formatCellValue(cell, wb.getCreationHelper().createFormulaEvaluator());
         assertEquals("-130", value);
     }
+    
+    /**
+     * Bug #63292
+     */
+    @Test
+    public void test1904With4PartFormat() {
+        Date date = new Date();
+        int formatIndex = 105;
+        String formatString1 = "[$-F400]m/d/yy h:mm:ss\\ AM/PM";
+        String formatString4 = "[$-F400]m/d/yy h:mm:ss\\ AM/PM;[$-F400]m/d/yy h:mm:ss\\ AM/PM;_-* \"\"??_-;_-@_-";
+
+        String s1900, s1904;
+
+        // These two format calls return the same thing, as expected:
+        // The assertEquals() passes with 1-part format
+        s1900 = format(date, formatIndex, formatString1, false);
+        s1904 = format(date, formatIndex, formatString1, true);
+        assertEquals(s1900, s1904);  // WORKS
+
+        // These two format calls should return the same thing but don't:
+        // It fails with 4-part format because the call to CellFormat ignores 'use1904Windowing'
+        s1900 = format(date, formatIndex, formatString4, false);
+        s1904 = format(date, formatIndex, formatString4, true);
+        assertEquals(s1900, s1904);  // FAILS before fix for #63292
+    }
+
+    private String format(Date date, int formatIndex, String formatString, boolean use1904Windowing) {
+        DataFormatter formatter = new DataFormatter();
+        double n = DateUtil.getExcelDate(date, use1904Windowing);
+        return formatter.formatRawCellContents(n, formatIndex, formatString, use1904Windowing);
+    }
+
+    @Test
+    public void testConcurrentCellFormat() throws Exception {
+        DataFormatter formatter1 = new DataFormatter();
+        DataFormatter formatter2 = new DataFormatter();
+        doFormatTestSequential(formatter1);
+        doFormatTestConcurrent(formatter1, formatter2);
+    }
+
+    private void doFormatTestSequential(DataFormatter formatter) {
+        for (int i = 0; i < 1_000; i++) {
+            assertTrue(doFormatTest(formatter, 43551.50990171296, "3/27/19 12:14:15 PM", i));
+            assertTrue(doFormatTest(formatter, 36104.424780092595, "11/5/98 10:11:41 AM", i));
+        }
+    }
+
+    private void doFormatTestConcurrent(DataFormatter formatter1, DataFormatter formatter2) throws Exception {
+        ArrayList<CompletableFuture<Boolean>> futures = new ArrayList<>();
+        for (int i = 0; i < 1_000; i++) {
+            final int iteration = i;
+            CompletableFuture<Boolean> future = CompletableFuture.supplyAsync(
+                    () -> {
+                        boolean r1 = doFormatTest(formatter1, 43551.50990171296, "3/27/19 12:14:15 PM", iteration);
+                        boolean r2 = doFormatTest(formatter1, 36104.424780092595, "11/5/98 10:11:41 AM", iteration);
+                        return r1 && r2;
+                    });
+            futures.add(future);
+            future = CompletableFuture.supplyAsync(
+                    () -> {
+                        boolean r1 = doFormatTest(formatter2, 43551.50990171296, "3/27/19 12:14:15 PM", iteration);
+                        boolean r2 = doFormatTest(formatter2, 36104.424780092595, "11/5/98 10:11:41 AM", iteration);
+                        return r1 && r2;
+                    });
+            futures.add(future);
+        }
+        for (CompletableFuture<Boolean> future : futures) {
+            assertTrue(future.get(1, TimeUnit.MINUTES));
+        }
+    }
+
+    private static boolean doFormatTest(DataFormatter formatter, double n, String expected, int iteration) {
+        int formatIndex = 105;
+        String formatString = "[$-F400]m/d/yy h:mm:ss\\ AM/PM;[$-F400]m/d/yy h:mm:ss\\ AM/PM;_-* \"\"??_-;_-@_-";
+        String actual = formatter.formatRawCellContents(n, formatIndex, formatString);
+        assertEquals("Failed on iteration " + iteration, expected, actual);
+        return true;
+    }
+
 }
