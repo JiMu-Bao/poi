@@ -18,7 +18,10 @@
 package org.apache.poi.hemf.usermodel;
 
 
+import static java.lang.Math.abs;
+
 import java.awt.Graphics2D;
+import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Dimension2D;
 import java.awt.geom.Rectangle2D;
@@ -30,11 +33,13 @@ import java.util.List;
 import java.util.Spliterator;
 import java.util.function.Consumer;
 
+import org.apache.poi.hemf.draw.HemfDrawProperties;
 import org.apache.poi.hemf.draw.HemfGraphics;
 import org.apache.poi.hemf.record.emf.HemfHeader;
 import org.apache.poi.hemf.record.emf.HemfRecord;
 import org.apache.poi.hemf.record.emf.HemfRecordIterator;
 import org.apache.poi.hemf.record.emf.HemfWindowing;
+import org.apache.poi.hwmf.usermodel.HwmfEmbedded;
 import org.apache.poi.util.Dimension2DDouble;
 import org.apache.poi.util.Internal;
 import org.apache.poi.util.LittleEndianInputStream;
@@ -45,7 +50,6 @@ import org.apache.poi.util.Units;
  */
 @Internal
 public class HemfPicture implements Iterable<HemfRecord> {
-
     private final LittleEndianInputStream stream;
     private final List<HemfRecord> records = new ArrayList<>();
     private boolean isParsed = false;
@@ -95,32 +99,42 @@ public class HemfPicture implements Iterable<HemfRecord> {
     }
 
     /**
+     * Returns the bounding box in device-independent units - usually this is in .01 millimeter units
+     *
+     * @return the bounding box in device-independent units
+     */
+    public Rectangle2D getBounds() {
+        Rectangle2D dim = getHeader().getFrameRectangle();
+        double x = dim.getX(), y = dim.getY();
+        double width = dim.getWidth(), height = dim.getHeight();
+        if (dim.isEmpty() || Math.rint(width) == 0 || Math.rint(height) == 0) {
+            for (HemfRecord r : getRecords()) {
+                if (r instanceof HemfWindowing.EmfSetWindowExtEx) {
+                    HemfWindowing.EmfSetWindowExtEx extEx = (HemfWindowing.EmfSetWindowExtEx)r;
+                    Dimension2D d = extEx.getSize();
+                    width = d.getWidth();
+                    height = d.getHeight();
+                    // keep searching - sometimes there's another record
+                }
+                if (r instanceof HemfWindowing.EmfSetWindowOrgEx) {
+                    HemfWindowing.EmfSetWindowOrgEx orgEx = (HemfWindowing.EmfSetWindowOrgEx)r;
+                    x = orgEx.getX();
+                    y = orgEx.getY();
+                }
+            }
+        }
+
+        return new Rectangle2D.Double(x, y, width, height);
+    }
+
+    /**
      * Return the image size in points
      *
      * @return the image size in points
      */
     public Dimension2D getSize() {
-        HemfHeader header = (HemfHeader)getRecords().get(0);
-        final double coeff = (double) Units.EMU_PER_CENTIMETER / Units.EMU_PER_POINT / 10.;
-        Rectangle2D dim = header.getFrameRectangle();
-        double width = dim.getWidth(), height = dim.getHeight();
-        if (dim.isEmpty() || Math.rint(width*coeff) == 0 || Math.rint(height*coeff) == 0) {
-            for (HemfRecord r : getRecords()) {
-                if (r instanceof HemfWindowing.EmfSetWindowExtEx) {
-                    Dimension2D d = ((HemfWindowing.EmfSetWindowExtEx)r).getSize();
-                    width = d.getWidth();
-                    height = d.getHeight();
-                    // keep searching - sometimes there's another record
-                }
-            }
-        }
-
-        if (Math.rint(width*coeff) == 0 || Math.rint(height*coeff) == 0) {
-            width = 100;
-            height = 100;
-        }
-
-        return new Dimension2DDouble(Math.abs(width*coeff), Math.abs(height*coeff));
+        final Rectangle2D b = getHeader().getBoundsRectangle();
+        return Units.pixelToPoints(new Dimension2DDouble(abs(b.getWidth()), abs(b.getHeight())));
     }
 
     private static double minX(Rectangle2D bounds) {
@@ -132,19 +146,22 @@ public class HemfPicture implements Iterable<HemfRecord> {
     }
 
     public void draw(Graphics2D ctx, Rectangle2D graphicsBounds) {
-        HemfHeader header = (HemfHeader)getRecords().get(0);
-
-        AffineTransform at = ctx.getTransform();
+        final Shape clip = ctx.getClip();
+        final AffineTransform at = ctx.getTransform();
         try {
-            Rectangle2D emfBounds = header.getBoundsRectangle();
+            Rectangle2D emfBounds = getHeader().getBoundsRectangle();
 
             // scale output bounds to image bounds
-            ctx.translate(minX(graphicsBounds), minY(graphicsBounds));
+            ctx.translate(graphicsBounds.getCenterX(), graphicsBounds.getCenterY());
             ctx.scale(graphicsBounds.getWidth()/emfBounds.getWidth(), graphicsBounds.getHeight()/emfBounds.getHeight());
-            ctx.translate(-minX(emfBounds), -minY(emfBounds));
+            ctx.translate(-emfBounds.getCenterX(), -emfBounds.getCenterY());
+
+            HemfGraphics g = new HemfGraphics(ctx, emfBounds);
+            HemfDrawProperties prop = g.getProperties();
+            prop.setViewportOrg(emfBounds.getX(), emfBounds.getY());
+            prop.setViewportExt(emfBounds.getWidth(), emfBounds.getHeight());
 
             int idx = 0;
-            HemfGraphics g = new HemfGraphics(ctx, emfBounds);
             for (HemfRecord r : getRecords()) {
                 try {
                     g.draw(r);
@@ -155,7 +172,11 @@ public class HemfPicture implements Iterable<HemfRecord> {
             }
         } finally {
             ctx.setTransform(at);
+            ctx.setClip(clip);
         }
     }
 
+    public Iterable<HwmfEmbedded> getEmbeddings() {
+        return () -> new HemfEmbeddedIterator(HemfPicture.this);
+    }
 }

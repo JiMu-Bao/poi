@@ -20,6 +20,8 @@
 package org.apache.poi.xslf.usermodel;
 
 import java.awt.Graphics2D;
+import java.awt.geom.Dimension2D;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +43,9 @@ import org.apache.poi.sl.usermodel.PlaceholderDetails;
 import org.apache.poi.sl.usermodel.Shape;
 import org.apache.poi.sl.usermodel.SimpleShape;
 import org.apache.poi.util.Beta;
+import org.apache.poi.util.Dimension2DDouble;
 import org.apache.poi.util.Internal;
+import org.apache.poi.util.Units;
 import org.apache.poi.xslf.model.PropertyFetcher;
 import org.apache.poi.xslf.usermodel.XSLFPropertiesDelegate.XSLFFillProperties;
 import org.apache.xmlbeans.XmlCursor;
@@ -58,8 +62,11 @@ import org.openxmlformats.schemas.drawingml.x2006.main.CTShapeStyle;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTSolidColorFillProperties;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTStyleMatrix;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTStyleMatrixReference;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTTileInfoProperties;
 import org.openxmlformats.schemas.drawingml.x2006.main.STPathShadeType;
+import org.openxmlformats.schemas.drawingml.x2006.main.STTileFlipMode;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTBackgroundProperties;
+import org.openxmlformats.schemas.presentationml.x2006.main.CTPicture;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTPlaceholder;
 import org.openxmlformats.schemas.presentationml.x2006.main.CTShape;
 import org.openxmlformats.schemas.presentationml.x2006.main.STPlaceholderType;
@@ -98,13 +105,18 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
     }
 
     @Override
-    public String getShapeName(){
-        return getCNvPr().getName();
+    public String getShapeName() {
+        CTNonVisualDrawingProps nonVisualDrawingProps = getCNvPr();
+        return nonVisualDrawingProps == null ? null : nonVisualDrawingProps.getName();
     }
 
     @Override
     public int getShapeId() {
-        return (int)getCNvPr().getId();
+        CTNonVisualDrawingProps nonVisualDrawingProps = getCNvPr();
+        if (nonVisualDrawingProps == null) {
+            throw new IllegalStateException("no underlying shape exists");
+        }
+        return Math.toIntExact(nonVisualDrawingProps.getId());
     }
 
     /**
@@ -144,6 +156,15 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
         PropertyFetcher<PaintStyle> fetcher = new PropertyFetcher<PaintStyle>() {
             @Override
             public boolean fetch(XSLFShape shape) {
+                PackagePart pp = shape.getSheet().getPackagePart();
+                if (shape instanceof XSLFPictureShape) {
+                    CTPicture pic = (CTPicture)shape.getXmlObject();
+                    if (pic.getBlipFill() != null) {
+                        setValue(selectPaint(pic.getBlipFill(), pp));
+                        return true;
+                    }
+                }
+
                 XSLFFillProperties fp = XSLFPropertiesDelegate.getFillDelegate(shape.getShapeProperties());
                 if (fp == null) {
                     return false;
@@ -154,7 +175,6 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
                     return true;
                 }
 
-                PackagePart pp = shape.getSheet().getPackagePart();
                 PaintStyle paint = selectPaint(fp, null, pp, theme, hasPlaceholder);
                 if (paint != null) {
                     setValue(paint);
@@ -414,6 +434,9 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
 
             @Override
             public String getContentType() {
+                if (blip == null || !blip.isSetEmbed() || blip.getEmbed().isEmpty()) {
+                    return null;
+                }
                 /* TOOD: map content-type */
                 return getPart().getContentType();
             }
@@ -423,6 +446,50 @@ public abstract class XSLFShape implements Shape<XSLFShape,XSLFTextParagraph> {
                 return (blip.sizeOfAlphaModFixArray() > 0)
                     ? blip.getAlphaModFixArray(0).getAmt()
                     : 100000;
+            }
+
+            @Override
+            public boolean isRotatedWithShape() {
+                return blipFill.isSetRotWithShape() && blipFill.getRotWithShape();
+            }
+
+            @Override
+            public Dimension2D getScale() {
+                CTTileInfoProperties tile = blipFill.getTile();
+                return (tile == null) ? null : new Dimension2DDouble(
+                    tile.isSetSx() ? tile.getSx()/100_000. : 1,
+                    tile.isSetSy() ? tile.getSy()/100_000. : 1);
+            }
+
+            @Override
+            public Point2D getOffset() {
+                CTTileInfoProperties tile = blipFill.getTile();
+                return (tile == null) ? null : new Point2D.Double(
+                        tile.isSetTx() ? Units.toPoints(tile.getTx()) : 0,
+                        tile.isSetTy() ? Units.toPoints(tile.getTy()) : 0);
+            }
+
+            @Override
+            public FlipMode getFlipMode() {
+                CTTileInfoProperties tile = blipFill.getTile();
+                switch (tile == null ? STTileFlipMode.INT_NONE : tile.getFlip().intValue()) {
+                    default:
+                    case STTileFlipMode.INT_NONE:
+                        return FlipMode.NONE;
+                    case STTileFlipMode.INT_X:
+                        return FlipMode.X;
+                    case STTileFlipMode.INT_Y:
+                        return FlipMode.Y;
+                    case STTileFlipMode.INT_XY:
+                        return FlipMode.XY;
+                }
+            }
+
+            @Override
+            public TextureAlignment getAlignment() {
+                CTTileInfoProperties tile = blipFill.getTile();
+                return (tile == null || !tile.isSetAlgn()) ? null
+                    : TextureAlignment.fromOoxmlId(tile.getAlgn().toString());
             }
         };
     }

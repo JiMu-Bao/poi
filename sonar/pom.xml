@@ -26,7 +26,7 @@
 
     <licenses>
         <license>
-            <name>The Apache Software License, Version 2.0</name>
+            <name>Apache License, Version 2.0</name>
             <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
         </license>
     </licenses>
@@ -42,9 +42,9 @@
     </issueManagement>
 
     <scm>
-        <connection>scm:svn:http://svn.apache.org/repos/asf/poi/trunk</connection>
+        <connection>scm:svn:https://svn.apache.org/repos/asf/poi/trunk</connection>
         <developerConnection>scm:svn:https://svn.apache.org/repos/asf/poi/trunk</developerConnection>
-        <url>http://svn.apache.org/viewvc/poi</url>
+        <url>https://svn.apache.org/viewvc/poi</url>
     </scm>
 
     <repositories>

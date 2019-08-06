@@ -20,6 +20,7 @@ package org.apache.poi.sl.draw;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Insets;
+import java.awt.Paint;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 
@@ -56,9 +57,10 @@ public class DrawPictureShape extends DrawSimpleShape {
             }
 
             try {
-                ImageRenderer renderer = getImageRenderer(graphics, data.getContentType());
-                if (renderer.canRender(data.getContentType())) {
-                    renderer.loadImage(data.getData(), data.getContentType());
+                String ct = data.getContentType();
+                ImageRenderer renderer = getImageRenderer(graphics, ct);
+                if (renderer.canRender(ct)) {
+                    renderer.loadImage(data.getData(), ct);
                     renderer.drawImage(graphics, anchor, insets);
                     return;
                 }
@@ -113,7 +115,12 @@ public class DrawPictureShape extends DrawSimpleShape {
         // falling back to BitmapImageRenderer, at least it gracefully handles invalid images
         return bir;
     }
-    
+
+    @Override
+    protected Paint getFillPaint(Graphics2D graphics) {
+        return null;
+    }
+
     @Override
     protected PictureShape<?,?> getShape() {
         return (PictureShape<?,?>)shape;

@@ -30,10 +30,12 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.poi.hemf.usermodel.HemfPicture;
+import org.apache.poi.sl.draw.BitmapImageRenderer;
 import org.apache.poi.sl.draw.ImageRenderer;
 import org.apache.poi.sl.usermodel.PictureData;
 import org.apache.poi.util.Units;
 
+@SuppressWarnings("unused")
 public class HemfImageRenderer implements ImageRenderer {
     HemfPicture image;
     double alpha;
@@ -60,15 +62,8 @@ public class HemfImageRenderer implements ImageRenderer {
     }
 
     @Override
-    public Dimension getDimension() {
-        int width = 0, height = 0;
-        if (image != null) {
-            Dimension2D dim = image.getSize();
-            width = Units.pointsToPixel(dim.getWidth());
-            // keep aspect ratio for height
-            height = Units.pointsToPixel(dim.getHeight());
-        }
-        return new Dimension(width, height);
+    public Dimension2D getDimension() {
+        return Units.pointsToPixel(image == null ? new Dimension() : image.getSize());
     }
 
     @Override
@@ -82,7 +77,7 @@ public class HemfImageRenderer implements ImageRenderer {
     }
 
     @Override
-    public BufferedImage getImage(Dimension dim) {
+    public BufferedImage getImage(Dimension2D dim) {
         if (image == null) {
             return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
         }
@@ -96,16 +91,7 @@ public class HemfImageRenderer implements ImageRenderer {
         image.draw(g, new Rectangle2D.Double(0,0,dim.getWidth(),dim.getHeight()));
         g.dispose();
 
-        if (alpha != 0) {
-            BufferedImage newImg = new BufferedImage((int)dim.getWidth(), (int)dim.getHeight(), BufferedImage.TYPE_INT_ARGB);
-            g = newImg.createGraphics();
-            RescaleOp op = new RescaleOp(new float[]{1.0f, 1.0f, 1.0f, (float)alpha}, new float[]{0,0,0,0}, null);
-            g.drawImage(bufImg, op, 0, 0);
-            g.dispose();
-            bufImg = newImg;
-        }
-
-        return bufImg;
+        return BitmapImageRenderer.setAlpha(bufImg, alpha);
     }
 
     @Override

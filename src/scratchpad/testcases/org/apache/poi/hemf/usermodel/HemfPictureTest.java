@@ -24,21 +24,14 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.awt.geom.Point2D;
-import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import org.apache.poi.POIDataSamples;
 import org.apache.poi.hemf.record.emf.HemfComment;
@@ -51,6 +44,8 @@ import org.apache.poi.hemf.record.emf.HemfRecordType;
 import org.apache.poi.hemf.record.emf.HemfText;
 import org.apache.poi.hwmf.record.HwmfRecord;
 import org.apache.poi.hwmf.record.HwmfText;
+import org.apache.poi.hwmf.usermodel.HwmfEmbedded;
+import org.apache.poi.hwmf.usermodel.HwmfEmbeddedType;
 import org.apache.poi.hwmf.usermodel.HwmfPicture;
 import org.apache.poi.util.IOUtils;
 import org.apache.poi.util.RecordFormatException;
@@ -61,11 +56,10 @@ public class HemfPictureTest {
     private static final POIDataSamples ss_samples = POIDataSamples.getSpreadSheetInstance();
     private static final POIDataSamples sl_samples = POIDataSamples.getSlideShowInstance();
 
-    /*
-    @Test
+/*    @Test
     @Ignore("Only for manual tests - need to add org.tukaani:xz:1.8 for this to work")
     public void paint() throws IOException {
-        byte buf[] = new byte[50_000_000];
+        final byte buf[] = new byte[50_000_000];
 
         // good test samples to validate rendering:
         // emfs/commoncrawl2/NB/NBWN2YH5VFCLZRFDQU7PB7IDD4UKY7DN_2.emf
@@ -73,22 +67,33 @@ public class HemfPictureTest {
         // emfs/govdocs1/844/844795.ppt_2.emf
         // emfs/commoncrawl2/TO/TOYZSTNUSW5OFCFUQ6T5FBLIDLCRF3NH_0.emf
 
-        final boolean writeLog = true;
+        final boolean writeLog = false;
         final boolean dumpRecords = false;
         final boolean savePng = true;
+        final boolean dumpEmbedded = false;
 
         Set<String> passed = new HashSet<>();
 
-        try (BufferedWriter sucWrite = parseEmfLog(passed, "emf-success.txt");
-             BufferedWriter parseError = parseEmfLog(passed, "emf-parse.txt");
-             BufferedWriter renderError = parseEmfLog(passed, "emf-render.txt");
-             SevenZFile sevenZFile = new SevenZFile(new File("tmp/render_emf.7z"))) {
+        try (BufferedWriter sucWrite = parseEmfLog(passed, "emf-success.txt")
+            ;BufferedWriter parseError = parseEmfLog(passed, "emf-parse.txt")
+            ;BufferedWriter renderError = parseEmfLog(passed, "emf-render.txt")
+            ;SevenZFile sevenZFile = new SevenZFile(new File("tmp/plus_emf.7z"))
+            ) {
             for (int idx=0;;idx++) {
                 SevenZArchiveEntry entry = sevenZFile.getNextEntry();
                 if (entry == null) break;
                 final String etName = entry.getName();
 
                 if (entry.isDirectory() || !etName.endsWith(".emf") || passed.contains(etName)) continue;
+
+
+                // KEEDHN6XES4EKK52E3AJHKCARNTQF7PO_0.emf takes ages, time is spent while drawing paths
+//                if (!etName.contains("KEEDHN6XES4EKK52E3AJHKCARNTQF7PO_0.emf")) continue;
+
+                // F7GK5XOLERFURVTQALOCX3GJ6FH45LNQ strange colors
+                // ISS3ANIX2PL4PXR7SZSJSPBZI7YQQE3U stroke wrong
+//                if (!etName.contains("ISS3ANIX2PL4PXR7SZSJSPBZI7YQQE3U")) continue;
+
 
                 System.out.println(etName);
 
@@ -116,6 +121,18 @@ public class HemfPictureTest {
                     dumpRecords(emf);
                 }
 
+                if (dumpEmbedded) {
+                    int embIdx = 0;
+                    for (HwmfEmbedded emb : emf.getEmbeddings()) {
+                        final File embName = new File("build/tmp", "emb_"+etName.replaceFirst(".+/", "").replace(".emf", "_"+embIdx + emb.getEmbeddedType().extension) );
+                        try (FileOutputStream fos = new FileOutputStream(embName)) {
+                            fos.write(emb.getRawData());
+                        }
+                        embIdx++;
+                    }
+                }
+
+
                 Graphics2D g = null;
                 try {
                     Dimension2D dim = emf.getSize();
@@ -133,17 +150,19 @@ public class HemfPictureTest {
                     BufferedImage bufImg = new BufferedImage((int)width, (int)height, BufferedImage.TYPE_INT_ARGB);
                     g = bufImg.createGraphics();
                     g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                    g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+                    g.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_SPEED);
+                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
                     g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
 
                     g.setComposite(AlphaComposite.Clear);
                     g.fillRect(0, 0, (int)width, (int)height);
                     g.setComposite(AlphaComposite.Src);
 
+                    final File pngName = new File("build/tmp", etName.replaceFirst(".+/", "").replace(".emf", ".png"));
+
                     emf.draw(g, new Rectangle2D.Double(0, 0, width, height));
 
-                    final File pngName = new File("build/tmp", etName.replaceFirst(".+/", "").replace(".emf", ".png"));
                     if (savePng) {
                         ImageIO.write(bufImg, "PNG", pngName);
                     }
@@ -165,7 +184,7 @@ public class HemfPictureTest {
                 }
             }
         }
-    } */
+    }
 
     private static int hashException(Throwable e) {
         StringBuilder sb = new StringBuilder();
@@ -194,14 +213,14 @@ public class HemfPictureTest {
         if (Files.exists(log)) {
             soo = StandardOpenOption.APPEND;
             try (Stream<String> stream = Files.lines(log)) {
-                stream.forEach((s) -> passed.add(s.split("\\s")[0]));
+                stream.filter(s -> !s.startsWith("#")).forEach((s) -> passed.add(s.split("\\s")[0]));
             }
         } else {
             soo = StandardOpenOption.CREATE;
         }
 
         return Files.newBufferedWriter(log, StandardCharsets.UTF_8, soo);
-    }
+    }*/
 
     @Test
     public void testBasicWindows() throws Exception {
@@ -380,7 +399,28 @@ public class HemfPictureTest {
         }
     }
 
-     /*
-        govdocs1 064213.doc-0.emf contains an example of extextouta
-     */
+    @Test
+    public void nestedWmfEmf() throws Exception {
+        try (InputStream is = sl_samples.openResourceAsStream("nested_wmf.emf")) {
+            HemfPicture emf1 = new HemfPicture(is);
+            List<HwmfEmbedded> embeds = new ArrayList<>();
+            emf1.getEmbeddings().forEach(embeds::add);
+            assertEquals(1, embeds.size());
+            assertEquals(HwmfEmbeddedType.WMF, embeds.get(0).getEmbeddedType());
+
+            HwmfPicture wmf = new HwmfPicture(new ByteArrayInputStream(embeds.get(0).getRawData()));
+            embeds.clear();
+            wmf.getEmbeddings().forEach(embeds::add);
+            assertEquals(3, embeds.size());
+            assertEquals(HwmfEmbeddedType.EMF, embeds.get(0).getEmbeddedType());
+
+            HemfPicture emf2 = new HemfPicture(new ByteArrayInputStream(embeds.get(0).getRawData()));
+            embeds.clear();
+            emf2.getEmbeddings().forEach(embeds::add);
+            assertTrue(embeds.isEmpty());
+        }
+    }
+
+
+    /* govdocs1 064213.doc-0.emf contains an example of extextouta */
 }

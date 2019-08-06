@@ -392,7 +392,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet  {
      *
      * @param region to merge
      * @param validate whether to validate merged region
-     * @return index of this region
+     * @return 0-based index of this region
      * @throws IllegalArgumentException if region contains fewer than 2 cells (this check is inexpensive and is performed regardless of <tt>validate</tt>)
      * @throws IllegalStateException if region intersects with a multi-cell array formula
      * @throws IllegalStateException if region intersects with an existing region on this sheet
@@ -409,14 +409,19 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet  {
             validateArrayFormulas(region);
 
             // Throw IllegalStateException if the argument CellRangeAddress intersects with
-            // a merged region already in this sheet 
+            // a merged region already in this sheet
             validateMergedRegions(region);
         }
 
         CTMergeCells ctMergeCells = worksheet.isSetMergeCells() ? worksheet.getMergeCells() : worksheet.addNewMergeCells();
         CTMergeCell ctMergeCell = ctMergeCells.addNewMergeCell();
         ctMergeCell.setRef(region.formatAsString());
-        return ctMergeCells.sizeOfMergeCellArray();
+        final int numMergeRegions=ctMergeCells.sizeOfMergeCellArray();
+
+        // also adjust the number of merged regions overall
+        ctMergeCells.setCount(numMergeRegions);
+
+        return numMergeRegions-1;
     }
 
     /**
@@ -4092,6 +4097,10 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet  {
 
     /**
      * Creates a new Table, and associates it with this Sheet.
+     * <p>
+     * The table is assigned a default display name (since 4.1.1) which can be overridden
+     * by calling {@code setDisplayName}.  The default display name is guaranteed to not conflict
+     * with the names of any {@code XSSFName} or {@code XSSFTable} in the workbook.
      *
      * @param tableArea
      *            the area that the table should cover, should not be null
@@ -4133,6 +4142,18 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet  {
 
         if(tableArea != null) {
             table.setArea(tableArea);
+        }
+
+        // Set the default name of the table.  This must not conflict with any defined names.
+        while(tableNumber<Integer.MAX_VALUE) {
+            final String displayName="Table"+tableNumber;
+            if(getWorkbook().getTable(displayName) == null &&
+                    getWorkbook().getName(displayName) == null) {
+                table.setDisplayName(displayName);
+                table.setName(displayName);
+                break;
+            }
+            ++tableNumber;
         }
 
         return table;
@@ -4546,7 +4567,7 @@ public class XSSFSheet extends POIXMLDocumentPart implements Sheet  {
      * @param ignoredErrorTypes Types of error to ignore there.
      */
     public void addIgnoredErrors(CellReference cell, IgnoredErrorType... ignoredErrorTypes) {
-        addIgnoredErrors(cell.formatAsString(), ignoredErrorTypes);
+        addIgnoredErrors(cell.formatAsString(false), ignoredErrorTypes);
     }
 
     /**

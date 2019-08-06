@@ -16,9 +16,8 @@
 ==================================================================== */
 package org.apache.poi.util;
 
-/**
- * @author Yegor Kozlov
- */
+import java.awt.geom.Dimension2D;
+
 public class Units {
     /**
      * In Escher absolute distances are specified in
@@ -140,13 +139,25 @@ public class Units {
         return (int)Math.rint(points);
     }
 
-    public static double pixelToPoints(int pixel) {
+    public static double pixelToPoints(double pixel) {
         double points = pixel;
         points *= POINT_DPI;
         points /= PIXEL_DPI;
         return points;
     }
-    
+
+    public static Dimension2D pointsToPixel(Dimension2D pointsDim) {
+        double width = pointsDim.getWidth() * PIXEL_DPI / POINT_DPI;
+        double height = pointsDim.getHeight() * PIXEL_DPI / POINT_DPI;
+        return new Dimension2DDouble(width, height);
+    }
+
+    public static Dimension2D pixelToPoints(Dimension2D pointsDim) {
+        double width = pointsDim.getWidth() * POINT_DPI / PIXEL_DPI;
+        double height = pointsDim.getHeight() * POINT_DPI / PIXEL_DPI;
+        return new Dimension2DDouble(width, height);
+    }
+
     public static int charactersToEMU(double characters) {
         return (int) characters * EMU_PER_CHARACTER;
     }

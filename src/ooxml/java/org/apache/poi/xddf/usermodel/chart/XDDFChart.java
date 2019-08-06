@@ -57,21 +57,29 @@ import org.apache.poi.xssf.usermodel.XSSFTable;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTArea3DChart;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTAreaChart;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTBar3DChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTBarChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTBoolean;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTCatAx;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTChartSpace;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTDateAx;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTLine3DChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTLineChart;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTPie3DChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTPieChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTPlotArea;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTRadarChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTScatterChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTSerAx;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTSurface;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTSurface3DChart;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTSurfaceChart;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTTitle;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTValAx;
+import org.openxmlformats.schemas.drawingml.x2006.chart.CTView3D;
 import org.openxmlformats.schemas.drawingml.x2006.chart.ChartSpaceDocument;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTShapeProperties;
 import org.openxmlformats.schemas.drawingml.x2006.main.CTTextCharacterProperties;
@@ -82,7 +90,7 @@ import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTTableColumns;
 
 @Beta
 public abstract class XDDFChart extends POIXMLDocumentPart implements TextContainer {
-    
+
     /**
      * default width of chart in emu
      */
@@ -92,7 +100,7 @@ public abstract class XDDFChart extends POIXMLDocumentPart implements TextContai
      * default height of chart in emu
      */
     public static final int DEFAULT_HEIGHT = 500000;
-    
+
     /**
      * default x-coordinate  of chart in emu
      */
@@ -102,7 +110,7 @@ public abstract class XDDFChart extends POIXMLDocumentPart implements TextContai
      * default y-coordinate value of chart in emu
      */
     public static final int DEFAULT_Y = 10;
-    
+
     /**
      * Underlying workbook
      */
@@ -301,6 +309,21 @@ public abstract class XDDFChart extends POIXMLDocumentPart implements TextContai
         }
     }
 
+   /**
+    * Get or Add chart 3D view into chart
+    *
+    * @return this method will add 3D view
+    */
+   public XDDFView3D getOrAddView3D() {
+      CTView3D view3D;
+      if (chart.isSetView3D()) {
+         view3D = chart.getView3D();
+      } else {
+         view3D = chart.addNewView3D();
+      }
+      return new XDDFView3D(view3D);
+   }
+
     /**
      * Get the chart title body if there is one, i.e. title is set and is not a
      * formula.
@@ -360,11 +383,23 @@ public abstract class XDDFChart extends POIXMLDocumentPart implements TextContai
         return new XDDFManualLayout(chart.getPlotArea());
     }
 
+    private long seriesCount = 0;
+    protected long incrementSeriesCount() {
+        return seriesCount++;
+    }
+
     public void plot(XDDFChartData data) {
         XSSFSheet sheet = getSheet();
         for (XDDFChartData.Series series : data.getSeries()) {
             series.plot();
-            fillSheet(sheet, series.getCategoryData(), series.getValuesData());
+            XDDFDataSource<?> categoryDS = series.getCategoryData();
+            XDDFNumericalDataSource<? extends Number> valuesDS = series.getValuesData();
+            if (categoryDS.isReference() || valuesDS.isReference()
+                    || categoryDS.isLiteral() || valuesDS.isLiteral()) {
+                // let's assume the data is already in the sheet
+            } else {
+                fillSheet(sheet, categoryDS, valuesDS);
+            }
         }
     }
 
@@ -374,32 +409,67 @@ public abstract class XDDFChart extends POIXMLDocumentPart implements TextContai
         Map<Long, XDDFChartAxis> categories = getCategoryAxes();
         Map<Long, XDDFValueAxis> values = getValueAxes();
 
+        for (int i = 0; i < plotArea.sizeOfAreaChartArray(); i++) {
+            CTAreaChart areaChart = plotArea.getAreaChartArray(i);
+            series.add(new XDDFAreaChartData(this, areaChart, categories, values));
+        }
+
+        for (int i = 0; i < plotArea.sizeOfArea3DChartArray(); i++) {
+            CTArea3DChart areaChart = plotArea.getArea3DChartArray(i);
+            series.add(new XDDFArea3DChartData(this, areaChart, categories, values));
+        }
+
         for (int i = 0; i < plotArea.sizeOfBarChartArray(); i++) {
             CTBarChart barChart = plotArea.getBarChartArray(i);
-            series.add(new XDDFBarChartData(barChart, categories, values));
+            series.add(new XDDFBarChartData(this, barChart, categories, values));
+        }
+
+        for (int i = 0; i < plotArea.sizeOfBar3DChartArray(); i++) {
+            CTBar3DChart barChart = plotArea.getBar3DChartArray(i);
+            series.add(new XDDFBar3DChartData(this, barChart, categories, values));
         }
 
         for (int i = 0; i < plotArea.sizeOfLineChartArray(); i++) {
             CTLineChart lineChart = plotArea.getLineChartArray(i);
-            series.add(new XDDFLineChartData(lineChart, categories, values));
+            series.add(new XDDFLineChartData(this, lineChart, categories, values));
+        }
+
+        for (int i = 0; i < plotArea.sizeOfLine3DChartArray(); i++) {
+            CTLine3DChart lineChart = plotArea.getLine3DChartArray(i);
+            series.add(new XDDFLine3DChartData(this, lineChart, categories, values));
         }
 
         for (int i = 0; i < plotArea.sizeOfPieChartArray(); i++) {
             CTPieChart pieChart = plotArea.getPieChartArray(i);
-            series.add(new XDDFPieChartData(pieChart));
+            series.add(new XDDFPieChartData(this, pieChart));
+        }
+
+        for (int i = 0; i < plotArea.sizeOfPie3DChartArray(); i++) {
+            CTPie3DChart pieChart = plotArea.getPie3DChartArray(i);
+            series.add(new XDDFPie3DChartData(this, pieChart));
         }
 
         for (int i = 0; i < plotArea.sizeOfRadarChartArray(); i++) {
             CTRadarChart radarChart = plotArea.getRadarChartArray(i);
-            series.add(new XDDFRadarChartData(radarChart, categories, values));
+            series.add(new XDDFRadarChartData(this, radarChart, categories, values));
         }
 
         for (int i = 0; i < plotArea.sizeOfScatterChartArray(); i++) {
             CTScatterChart scatterChart = plotArea.getScatterChartArray(i);
-            series.add(new XDDFScatterChartData(scatterChart, categories, values));
+            series.add(new XDDFScatterChartData(this, scatterChart, categories, values));
         }
 
-        // TODO repeat above code for all kind of charts
+        for (int i = 0; i < plotArea.sizeOfSurfaceChartArray(); i++) {
+            CTSurfaceChart surfaceChart = plotArea.getSurfaceChartArray(i);
+            series.add(new XDDFSurfaceChartData(this, surfaceChart, categories, values));
+        }
+
+        for (int i = 0; i < plotArea.sizeOfSurface3DChartArray(); i++) {
+            CTSurface3DChart surfaceChart = plotArea.getSurface3DChartArray(i);
+            series.add(new XDDFSurface3DChartData(this, surfaceChart, categories, values));
+        }
+
+        // TODO repeat above code for missing charts: Bubble, Doughnut, OfPie and Stock
         return series;
     }
 
@@ -436,6 +506,23 @@ public abstract class XDDFChart extends POIXMLDocumentPart implements TextContai
         return valueAxis;
     }
 
+    /**
+     * this method will return series axis with specified position
+     *
+     * @param pos axis position Left, Right, Top, Bottom
+     * @return series axis with specified position
+     */
+    public XDDFSeriesAxis createSeriesAxis(AxisPosition pos) {
+        XDDFSeriesAxis seriesAxis = new XDDFSeriesAxis(chart.getPlotArea(), pos);
+        if (axes.size() == 1) {
+            XDDFChartAxis axis = axes.get(0);
+            axis.crossAxis(seriesAxis);
+            seriesAxis.crossAxis(axis);
+        }
+        axes.add(seriesAxis);
+        return seriesAxis;
+    }
+
     public XDDFCategoryAxis createCategoryAxis(AxisPosition pos) {
         XDDFCategoryAxis categoryAxis = new XDDFCategoryAxis(chart.getPlotArea(), pos);
         if (axes.size() == 1) {
@@ -458,21 +545,50 @@ public abstract class XDDFChart extends POIXMLDocumentPart implements TextContai
         return dateAxis;
     }
 
+    /**
+     * this method will return specified chart data with category and series values
+     *
+     * @param type chart type
+     * @param category category values of chart
+     * @param values series values of chart
+     * @return specified chart data.
+     */
     public XDDFChartData createData(ChartTypes type, XDDFChartAxis category, XDDFValueAxis values) {
-        Map<Long, XDDFChartAxis> categories = Collections.singletonMap(category.getId(), category);
-        Map<Long, XDDFValueAxis> mapValues = Collections.singletonMap(values.getId(), values);
+        Map<Long, XDDFChartAxis> categories = null;
+        Map<Long, XDDFValueAxis> mapValues = null;
+
+        if (ChartTypes.PIE != type && ChartTypes.PIE3D != type) {
+            categories = Collections.singletonMap(category.getId(), category);
+            mapValues = Collections.singletonMap(values.getId(), values);
+        }
+
         final CTPlotArea plotArea = getCTPlotArea();
         switch (type) {
+        case AREA:
+            return new XDDFAreaChartData(this, plotArea.addNewAreaChart(), categories, mapValues);
+        case AREA3D:
+            return new XDDFArea3DChartData(this, plotArea.addNewArea3DChart(), categories, mapValues);
         case BAR:
-            return new XDDFBarChartData(plotArea.addNewBarChart(), categories, mapValues);
+            return new XDDFBarChartData(this, plotArea.addNewBarChart(), categories, mapValues);
+        case BAR3D:
+            return new XDDFBar3DChartData(this, plotArea.addNewBar3DChart(), categories, mapValues);
         case LINE:
-            return new XDDFLineChartData(plotArea.addNewLineChart(), categories, mapValues);
+            return new XDDFLineChartData(this, plotArea.addNewLineChart(), categories, mapValues);
+        case LINE3D:
+            return new XDDFLine3DChartData(this, plotArea.addNewLine3DChart(), categories, mapValues);
         case PIE:
-            return new XDDFPieChartData(plotArea.addNewPieChart());
+            return new XDDFPieChartData(this, plotArea.addNewPieChart());
+        case PIE3D:
+            return new XDDFPie3DChartData(this, plotArea.addNewPie3DChart());
         case RADAR:
-            return new XDDFRadarChartData(plotArea.addNewRadarChart(), categories, mapValues);
+            return new XDDFRadarChartData(this, plotArea.addNewRadarChart(), categories, mapValues);
         case SCATTER:
-            return new XDDFScatterChartData(plotArea.addNewScatterChart(), categories, mapValues);
+            return new XDDFScatterChartData(this, plotArea.addNewScatterChart(), categories, mapValues);
+        case SURFACE:
+            return new XDDFSurfaceChartData(this, plotArea.addNewSurfaceChart(), categories, mapValues);
+        case SURFACE3D:
+            return new XDDFSurface3DChartData(this, plotArea.addNewSurface3DChart(), categories, mapValues);
+        // TODO repeat above code for missing charts: Bubble, Doughnut, OfPie and Stock
         default:
             return null;
         }
@@ -734,9 +850,9 @@ public abstract class XDDFChart extends POIXMLDocumentPart implements TextContai
         XSSFRow row = this.getRow(sheet, 0);
         XSSFCell cell = this.getCell(row, column);
         cell.setCellValue(title);
-        
+
         CTTable ctTable = this.getSheetTable(sheet);
-        
+
         this.updateSheetTable(ctTable, title, column);
         return new CellReference(sheet.getSheetName(), 0, column, true, true);
     }

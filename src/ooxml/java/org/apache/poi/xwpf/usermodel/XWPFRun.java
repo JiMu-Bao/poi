@@ -1203,6 +1203,7 @@ public class XWPFRun implements ISDTContents, IRunElement, CharacterRun {
      * Set the style ID for the run.
      *
      * @param styleId ID (not name) of the style to set for the run, e.g. "BoldItalic" (not "Bold Italic").
+     * @since POI 4.1.1
      */
     public void setStyle(String styleId) {
         CTRPr pr = getCTR().getRPr();
@@ -1213,6 +1214,25 @@ public class XWPFRun implements ISDTContents, IRunElement, CharacterRun {
         style.setVal(styleId);
     }
 
+    /**
+     * Return this run's style ID. If this run has no style (no run properties or properties without a style),
+     * an empty string is returned.
+     *
+     * @since 4.1.1
+     */
+    public String getStyle() {
+        CTRPr pr = getCTR().getRPr();
+        if (pr == null) {
+            return "";
+        }
+
+        CTString style = pr.getRStyle();
+        if (style == null) {
+            return "";
+        }
+
+        return style.getVal();
+    }
     
 
     /**

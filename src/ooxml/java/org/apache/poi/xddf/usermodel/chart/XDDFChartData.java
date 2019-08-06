@@ -20,10 +20,14 @@ package org.apache.poi.xddf.usermodel.chart;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.util.Beta;
+import org.apache.poi.util.Internal;
+import org.apache.poi.xddf.usermodel.XDDFFillProperties;
+import org.apache.poi.xddf.usermodel.XDDFLineProperties;
 import org.apache.poi.xddf.usermodel.XDDFShapeProperties;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTAxDataSource;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTNumData;
@@ -41,11 +45,13 @@ import org.openxmlformats.schemas.drawingml.x2006.chart.CTUnsignedInt;
  */
 @Beta
 public abstract class XDDFChartData {
+    protected XDDFChart parent;
     protected List<Series> series;
     private XDDFCategoryAxis categoryAxis;
     private List<XDDFValueAxis> valueAxes;
 
-    protected XDDFChartData() {
+    protected XDDFChartData(XDDFChart chart) {
+        this.parent = chart;
         this.series = new ArrayList<>();
     }
 
@@ -75,11 +81,62 @@ public abstract class XDDFChartData {
         return valueAxes;
     }
 
+    /**
+     * Calls to <code>getSeries().add(series)</code> or to <code>getSeries().remove(series)</code>
+     * may corrupt the workbook.
+     *
+     * <p>
+     * Instead, use the following methods:
+     * <ul>
+     * <li>{@link #getSeriesCount()}</li>
+     * <li>{@link #getSeries(int)}</li>
+     * <li>{@link #addSeries(XDDFDataSource,XDDFNumericalDataSource)}</li>
+     * <li>{@link #removeSeries(int)}</li>
+     * </ul>
+     *
+     * @deprecated since POI 4.1.1
+     * @return
+     */
+    @Deprecated
     public List<Series> getSeries() {
         return series;
     }
 
-    public abstract void setVaryColors(boolean varyColors);
+    public final int getSeriesCount() {
+        return series.size();
+    }
+
+    public final Series getSeries(int n) {
+        return series.get(n);
+    }
+
+    public final void removeSeries(int n) {
+        final String procName = "removeSeries";
+        if (n < 0 || series.size() <= n) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "%s(%d): illegal index", procName, n));
+        }
+        series.remove(n);
+        removeCTSeries(n);
+    }
+
+    /**
+     * This method should be implemented in every class that extends <code>XDDFChartData</code>.
+     * <p>
+     * A typical implementation would be
+     *
+     * <pre><code>
+    protected void removeCTSeries(int n) {
+        chart.removeSer(n);
+    }
+
+     * </code></pre>
+     *
+     * @param n
+     */
+    @Internal
+    protected abstract void removeCTSeries(int n);
+
+    public abstract void setVaryColors(Boolean varyColors);
 
     public abstract XDDFChartData.Series addSeries(XDDFDataSource<?> category,
             XDDFNumericalDataSource<? extends Number> values);
@@ -97,6 +154,10 @@ public abstract class XDDFChartData {
         protected abstract CTAxDataSource getAxDS();
 
         protected abstract CTNumDataSource getNumDS();
+
+        protected abstract void setIndex(long index);
+
+        protected abstract void setOrder(long order);
 
         protected Series(XDDFDataSource<?> category, XDDFNumericalDataSource<? extends Number> values) {
             replaceData(category, values);
@@ -124,18 +185,20 @@ public abstract class XDDFChartData {
                 } else {
                     ref = getSeriesText().addNewStrRef();
                 }
-                CTStrData cache;
-                if (ref.isSetStrCache()) {
-                    cache = ref.getStrCache();
-                } else {
-                    cache = ref.addNewStrCache();
-                }
-                if (cache.sizeOfPtArray() < 1) {
-                    cache.addNewPtCount().setVal(1);
-                    cache.addNewPt().setIdx(0);
-                }
-                cache.getPtArray(0).setV(title);
                 ref.setF(titleRef.formatAsString());
+                if (title != null) {
+                    CTStrData cache;
+                    if (ref.isSetStrCache()) {
+                        cache = ref.getStrCache();
+                    } else {
+                        cache = ref.addNewStrCache();
+                    }
+                    if (cache.sizeOfPtArray() < 1) {
+                        cache.addNewPtCount().setVal(1);
+                        cache.addNewPt().setIdx(0);;
+                    }
+                    cache.getPtArray(0).setV(title);
+                }
             }
         }
 
@@ -158,6 +221,34 @@ public abstract class XDDFChartData {
             }
             CTNumData cache = retrieveNumCache(getNumDS(), valuesData);
             fillNumCache(cache, numOfPoints, valuesData);
+        }
+
+        /**
+         * @param fill
+         *      fill property for the shape representing the series.
+         * @since POI 4.1.1
+         */
+        public void setFillProperties(XDDFFillProperties fill) {
+            XDDFShapeProperties properties = getShapeProperties();
+            if (properties == null) {
+                properties = new XDDFShapeProperties();
+            }
+            properties.setFillProperties(fill);
+            setShapeProperties(properties);
+        }
+
+        /**
+         * @param line
+         *      line property for the shape representing the series.
+         * @since POI 4.1.1
+         */
+        public void setLineProperties(XDDFLineProperties line) {
+            XDDFShapeProperties properties = getShapeProperties();
+            if (properties == null) {
+                properties = new XDDFShapeProperties();
+            }
+            properties.setLineProperties(line);
+            setShapeProperties(properties);
         }
 
         private CTNumData retrieveNumCache(final CTAxDataSource axDataSource, XDDFDataSource<?> data) {
@@ -255,17 +346,19 @@ public abstract class XDDFChartData {
 
         private void fillStringCache(CTStrData cache, int numOfPoints, XDDFDataSource<?> data) {
             cache.setPtArray(null); // unset old values
-            if (cache.isSetPtCount()) {
-                cache.getPtCount().setVal(numOfPoints);
-            } else {
-                cache.addNewPtCount().setVal(numOfPoints);
-            }
-            for (int i = 0; i < numOfPoints; ++i) {
-                String value = data.getPointAt(i).toString();
-                if (value != null) {
-                    CTStrVal ctStrVal = cache.addNewPt();
-                    ctStrVal.setIdx(i);
-                    ctStrVal.setV(value);
+            if (data.getPointAt(0) != null) { // assuming no value for first is no values at all
+                if (cache.isSetPtCount()) {
+                    cache.getPtCount().setVal(numOfPoints);
+                } else {
+                    cache.addNewPtCount().setVal(numOfPoints);
+                }
+                for (int i = 0; i < numOfPoints; ++i) {
+                    String value = data.getPointAt(i).toString();
+                    if (value != null) {
+                        CTStrVal ctStrVal = cache.addNewPt();
+                        ctStrVal.setIdx(i);
+                        ctStrVal.setV(value);
+                    }
                 }
             }
         }
@@ -280,17 +373,19 @@ public abstract class XDDFChartData {
                 cache.setFormatCode(formatCode);
             }
             cache.setPtArray(null); // unset old values
-            if (cache.isSetPtCount()) {
-                cache.getPtCount().setVal(numOfPoints);
-            } else {
-                cache.addNewPtCount().setVal(numOfPoints);
-            }
-            for (int i = 0; i < numOfPoints; ++i) {
-                Object value = data.getPointAt(i);
-                if (value != null) {
-                    CTNumVal ctNumVal = cache.addNewPt();
-                    ctNumVal.setIdx(i);
-                    ctNumVal.setV(value.toString());
+            if (data.getPointAt(0) != null) { // assuming no value for first is no values at all
+                if (cache.isSetPtCount()) {
+                    cache.getPtCount().setVal(numOfPoints);
+                } else {
+                    cache.addNewPtCount().setVal(numOfPoints);
+                }
+                for (int i = 0; i < numOfPoints; ++i) {
+                    Object value = data.getPointAt(i);
+                    if (value != null) {
+                        CTNumVal ctNumVal = cache.addNewPt();
+                        ctNumVal.setIdx(i);
+                        ctNumVal.setV(value.toString());
+                    }
                 }
             }
         }

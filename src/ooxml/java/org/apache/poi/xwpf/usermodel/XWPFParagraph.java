@@ -402,6 +402,29 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
         }
         return null;
     }
+    
+    /**
+     * Indicates whether this paragraph should be kept on the same page as the next one.
+     *
+     * @since POI 4.1.1
+     */
+    public boolean isKeepNext() {
+        if (getCTP() != null && getCTP().getPPr() != null && getCTP().getPPr().isSetKeepNext()) {
+            return getCTP().getPPr().getKeepNext().getVal() == STOnOff.ON;
+        }
+        return false;
+    }
+    
+    /**
+     * Sets this paragraph to be kept on the same page as the next one or not. 
+     *
+     * @since POI 4.1.1
+     */
+    public void setKeepNext(boolean keepNext) {
+        CTOnOff state = CTOnOff.Factory.newInstance();
+        state.setVal(keepNext ? STOnOff.ON : STOnOff.OFF);
+        getCTP().getPPr().setKeepNext(state);
+    }
 
     /**
      * Returns the text of the paragraph, but not of any objects in the
@@ -1415,6 +1438,30 @@ public class XWPFParagraph implements IBodyElement, IRunBody, ISDTContents, Para
         runs.add(xwpfRun);
         iruns.add(xwpfRun);
         return xwpfRun;
+    }
+
+    /**
+     * Appends a new hyperlink run to this paragraph
+     *
+     * @return a new hyperlink run
+     * @since POI 4.1.1
+     */
+    public XWPFHyperlinkRun createHyperlinkRun(String uri) {
+        // Create a relationship ID for this link. 
+        String rId = getPart().getPackagePart().addExternalRelationship(
+                uri, XWPFRelation.HYPERLINK.getRelation()
+        ).getId();
+        
+        // Create the run. 
+        CTHyperlink ctHyperLink = getCTP().addNewHyperlink();
+        ctHyperLink.setId(rId);
+        ctHyperLink.addNewR();
+        
+        // Append this run to the paragraph. 
+        XWPFHyperlinkRun link = new XWPFHyperlinkRun(ctHyperLink, ctHyperLink.getRArray(0), this);
+        runs.add(link);
+        iruns.add(link);
+        return link;
     }
 
     /**

@@ -20,6 +20,7 @@ package org.apache.poi.hwmf.record;
 import static org.apache.poi.hwmf.record.HwmfDraw.boundsToString;
 import static org.apache.poi.hwmf.record.HwmfDraw.readPointS;
 
+import java.awt.Color;
 import java.awt.Shape;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
@@ -29,6 +30,7 @@ import java.io.IOException;
 
 import org.apache.poi.hwmf.draw.HwmfDrawProperties;
 import org.apache.poi.hwmf.draw.HwmfGraphics;
+import org.apache.poi.hwmf.record.HwmfMisc.WmfSetBkMode.HwmfBkMode;
 import org.apache.poi.util.LittleEndianConsts;
 import org.apache.poi.util.LittleEndianInputStream;
 
@@ -37,7 +39,29 @@ public class HwmfFill {
      * A record which contains an image (to be extracted)
      */
     public interface HwmfImageRecord {
-        BufferedImage getImage();
+
+        default BufferedImage getImage() {
+            return getImage(Color.BLACK, new Color(0x00FFFFFF, true), true);
+        }
+
+        /**
+         * Provide an image using the fore-/background color, in case of a 1-bit pattern
+         * @param foreground the foreground color
+         * @param background the background color
+         * @param hasAlpha if true, the background color is rendered transparent - see {@link HwmfMisc.WmfSetBkMode.HwmfBkMode}
+         * @return the image
+         *
+         * @since POI 4.1.1
+         */
+        BufferedImage getImage(Color foreground, Color background, boolean hasAlpha);
+
+        /**
+         * @return the raw BMP data
+         *
+         * @see <a href="https://en.wikipedia.org/wiki/BMP_file_format">BMP format</a>
+         * @since POI 4.1.1
+         */
+        byte[] getBMPData();
     }
     
     /**
@@ -497,7 +521,9 @@ public class HwmfFill {
             HwmfDrawProperties prop = ctx.getProperties();
             prop.setRasterOp(rasterOperation);
             if (bitmap.isValid()) {
-                ctx.drawImage(getImage(), srcBounds, dstBounds);
+                BufferedImage bi = bitmap.getImage(prop.getPenColor().getColor(), prop.getBackgroundColor().getColor(),
+                                                   prop.getBkMode() == HwmfBkMode.TRANSPARENT);
+                ctx.drawImage(bi, srcBounds, dstBounds);
             } else if (!dstBounds.isEmpty()) {
                 BufferedImage bi = new BufferedImage(100, 100, BufferedImage.TYPE_INT_ARGB);
                 ctx.drawImage(bi, new Rectangle2D.Double(0,0,100,100), dstBounds);
@@ -505,8 +531,17 @@ public class HwmfFill {
         }
 
         @Override
-        public BufferedImage getImage() {
-            return bitmap.getImage();
+        public BufferedImage getImage(Color foreground, Color background, boolean hasAlpha) {
+            return bitmap.getImage(foreground,background,hasAlpha);
+        }
+
+        public HwmfBitmapDib getBitmap() {
+            return bitmap;
+        }
+
+        @Override
+        public byte[] getBMPData() {
+            return bitmap.getBMPData();
         }
 
         @Override
@@ -631,8 +666,13 @@ public class HwmfFill {
         }
 
         @Override
-        public BufferedImage getImage() {
-            return dib.getImage();
+        public BufferedImage getImage(Color foreground, Color background, boolean hasAlpha) {
+            return dib.getImage(foreground,background,hasAlpha);
+        }
+
+        @Override
+        public byte[] getBMPData() {
+            return dib.getBMPData();
         }
     }
 
@@ -675,7 +715,17 @@ public class HwmfFill {
         }
     }
 
-    public static class WmfDibStretchBlt implements HwmfRecord, HwmfImageRecord, HwmfObjectTableEntry {
+    /**
+     * The META_DIBSTRETCHBLT record specifies the transfer of a block of pixels in device-independent format
+     * according to a raster operation, with possible expansion or contraction.
+     *
+     * The destination of the transfer is the current output region in the playback device context.
+     * There are two forms of META_DIBSTRETCHBLT, one which specifies a device-independent bitmap (DIB) as the source,
+     * and the other which uses the playback device context as the source. Definitions follow for the fields that are
+     * the same in the two forms of META_DIBSTRETCHBLT. The subsections that follow specify the packet structures of
+     * the two forms of META_DIBSTRETCHBLT.
+     */
+    public static class WmfDibStretchBlt implements HwmfRecord, HwmfImageRecord {
         /**
          * A 32-bit unsigned integer that defines how the source pixels, the current brush
          * in the playback device context, and the destination pixels are to be combined to form the
@@ -708,7 +758,7 @@ public class HwmfFill {
             int rasterOpIndex = leis.readUShort();
             
             rasterOperation = HwmfTernaryRasterOp.valueOf(rasterOpIndex);
-            assert(rasterOpCode == rasterOperation.opCode);
+            assert(rasterOperation != null && rasterOpCode == rasterOperation.opCode);
 
             int size = 2*LittleEndianConsts.SHORT_SIZE;
 
@@ -729,17 +779,28 @@ public class HwmfFill {
 
         @Override
         public void draw(HwmfGraphics ctx) {
-            ctx.addObjectTableEntry(this);
+            HwmfDrawProperties prop = ctx.getProperties();
+            prop.setRasterOp(rasterOperation);
+            // TODO: implement second operation based on playback device context
+            if (target != null) {
+                HwmfBkMode mode = prop.getBkMode();
+                prop.setBkMode(HwmfBkMode.TRANSPARENT);
+                Color fgColor = prop.getPenColor().getColor();
+                Color bgColor = prop.getBackgroundColor().getColor();
+                BufferedImage bi = target.getImage(fgColor, bgColor, true);
+                ctx.drawImage(bi, srcBounds, dstBounds);
+                prop.setBkMode(mode);
+            }
         }
 
         @Override
-        public void applyObject(HwmfGraphics ctx) {
-
+        public BufferedImage getImage(Color foreground, Color background, boolean hasAlpha) {
+            return (target != null && target.isValid()) ? target.getImage(foreground,background,hasAlpha) : null;
         }
 
         @Override
-        public BufferedImage getImage() {
-            return (target != null && target.isValid()) ? target.getImage() : null;
+        public byte[] getBMPData() {
+            return (target != null && target.isValid()) ? target.getBMPData() : null;
         }
     }
 

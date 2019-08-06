@@ -18,8 +18,7 @@ def poijobs = [
         ],
         [ name: 'POI-DSL-OpenJDK', jdk: 'OpenJDK', trigger: 'H */12 * * *',
           // H13-H20 (Ubuntu 16.04) do not have OpenJDK 6 installed, see https://issues.apache.org/jira/browse/INFRA-12880
-          slaveAdd: '&&!beam1&&!beam2&&!beam3&&!beam4&&!beam5&&!beam6&&!beam7&&!beam8' +
-                  '&&!H0&&!H1&&!H2&&!H3&&!H4&&!H5&&!H6&&!H7&&!H8&&!H9&&!H10&&!H11' +
+          slaveAdd: '&&!H0&&!H1&&!H2&&!H3&&!H4&&!H5&&!H6&&!H7&&!H8&&!H9&&!H10&&!H11' +
                   '&&!qnode3' +
                   '&&!ubuntu-1&&!ubuntu-2&&!ubuntu-4&&!ubuntu-5&&!ubuntu-6&&!ubuntu-eu2&&!ubuntu-us1',
           // the JDK is missing on some slaves so builds are unstable
@@ -27,18 +26,13 @@ def poijobs = [
         ],
         [ name: 'POI-DSL-1.10', jdk: '1.10', trigger: triggerSundays, skipcigame: true
         ],
-        [ name: 'POI-DSL-1.11', jdk: '1.11', trigger: triggerSundays, skipcigame: true,
-          // Nodes beam* do not yet have JDK 11 installed
-          slaveAdd: '&&!beam1&&!beam2&&!beam3&&!beam4&&!beam6&&!beam7&&!beam8&&!beam9&&!beam10&&!beam11&&!beam12&&!beam13&&!beam14&&!beam15&&!beam16'
+        [ name: 'POI-DSL-1.11', jdk: '1.11', trigger: triggerSundays, skipcigame: true
         ],
         [ name: 'POI-DSL-1.12', jdk: '1.12', trigger: triggerSundays, skipcigame: true,
-          // Nodes beam* do not yet have JDK 12 installed
           // H43 has outdated JDK12 installed
-          slaveAdd: '&&!beam1&&!beam2&&!beam3&&!beam4&&!beam6&&!beam7&&!beam8&&!beam9&&!beam10&&!beam11&&!beam12&&!beam13&&!beam14&&!beam15&&!beam16&&!H43'
+          slaveAdd: '&&!H43'
         ],
-        [ name: 'POI-DSL-1.13', jdk: '1.13', trigger: triggerSundays, skipcigame: true,
-          // Nodes beam* do not yet have JDK 13 installed
-          slaveAdd: '&&!beam1&&!beam2&&!beam3&&!beam4&&!beam6&&!beam7&&!beam8&&!beam9&&!beam10&&!beam11&&!beam12&&!beam13&&!beam14&&!beam15&&!beam16'
+        [ name: 'POI-DSL-1.13', jdk: '1.13', trigger: triggerSundays, skipcigame: true
         ],
         [ name: 'POI-DSL-IBM-JDK', jdk: 'IBMJDK', trigger: triggerSundays, skipcigame: true
         ],
@@ -71,20 +65,19 @@ def poijobs = [
         [ name: 'POI-DSL-Github-PullRequests', trigger: '', githubpr: true, skipcigame: true,
           // ensure the file which is needed from the separate documentation module does exist
           // as we are checking out from git, we do not have the reference checked out here
-          addShell: 'mkdir src/documentation\ntouch src/documentation/RELEASE-NOTES.txt'
+          addShell: 'mkdir -p src/documentation\ntouch src/documentation/RELEASE-NOTES.txt'
         ],
 ]
 
 def xmlbeansjobs = [
         [ name: 'POI-XMLBeans-DSL-1.6', jdk: '1.6', trigger: 'H */12 * * *', skipcigame: true,
+                disabled: true // XMLBeans does not support Java 6 any more
         ],
-        [ name: 'POI-XMLBeans-DSL-1.8', jdk: '1.8', trigger: triggerSundays, skipcigame: true,
+        [ name: 'POI-XMLBeans-DSL-1.8', jdk: '1.8', trigger: 'H */12 * * *', skipcigame: true,
         ],
         [ name: 'POI-XMLBeans-DSL-1.11', jdk: '1.11', trigger: triggerSundays, skipcigame: true,
-                disabled: true // XMLBeans does not yet compile with Java 11
         ],
         [ name: 'POI-XMLBeans-DSL-1.12', jdk: '1.12', trigger: triggerSundays, skipcigame: true,
-                disabled: true // XMLBeans does not yet compile with Java 11
         ]
 ]
 
@@ -94,13 +87,11 @@ def xmlbeansSvnBase = 'https://svn.apache.org/repos/asf/xmlbeans/trunk'
 def defaultJdk = '1.8'
 def defaultTrigger = 'H/15 * * * *'     // check SCM every 60/15 = 4 minutes
 def defaultEmail = 'dev@poi.apache.org'
-def defaultAnt = 'Ant 1.9.9'
+def defaultAnt = 'Ant 1.9 (Latest)'
+def defaultAntWindows = 'Ant 1.9 (Latest Windows)'
 // currently a lot of H?? slaves don't have Ant installed ... H21 seems to have a SVN problem
 // H35 fails with ImageIO create cache file errors, although the java.io.tmpdir is writable
-def defaultSlaves = '(ubuntu||beam)&&!cloud-slave&&!H15&&!H17&&!H18&&!H24&&!ubuntu-4&&!H21&&!H35' +
-        // Disable all apache-beam-* nodes as they seem to lack svn and Ant installations currently
-        '&&!apache-beam-jenkins-1&&!apache-beam-jenkins-2&&!apache-beam-jenkins-4&&!apache-beam-jenkins-7' +
-        '&&!apache-beam-jenkins-8&&!apache-beam-jenkins-9'
+def defaultSlaves = '(ubuntu)&&!beam&&!cloud-slave&&!H15&&!H17&&!H18&&!H24&&!ubuntu-4&&!H21&&!H35'
 
 def jdkMapping = [
         '1.6': 'JDK 1.6 (latest)',
@@ -174,7 +165,7 @@ javac -version
 echo Ant-Home: $ANT_HOME
 ls -al $ANT_HOME
 echo which ant
-which ant
+which ant || true
 ant -version
 
 echo '<project default="test"><target name="test"><echo>Java ${ant.java.version}/${java.version}</echo><exec executable="javac"><arg value="-version"/></exec></target></project>' > build.javacheck.xml
@@ -205,7 +196,7 @@ poijobs.each { poijob ->
     def trigger = poijob.trigger ?: defaultTrigger
     def email = poijob.email ?: defaultEmail
     def slaves = poijob.slaves ?: defaultSlaves + (poijob.slaveAdd ?: '')
-    def antRT = defaultAnt + (poijob.windows ? ' (Windows)' : '')
+    def antRT = poijob.windows ? defaultAntWindows : defaultAnt
 
     job(poijob.name) {
         if (poijob.disabled) {
@@ -468,7 +459,7 @@ xmlbeansjobs.each { xjob ->
     def trigger = xjob.trigger ?: defaultTrigger
     def email = xjob.email ?: defaultEmail
     def slaves = xjob.slaves ?: defaultSlaves + (xjob.slaveAdd ?: '')
-    def antRT = defaultAnt + (xjob.windows ? ' (Windows)' : '')
+    def antRT = xjob.windows ? defaultAntWindows : defaultAnt
 
     job(xjob.name) {
         if (xjob.disabled) {
@@ -629,7 +620,7 @@ echo ^<?xml version=^"1.0^"?^>^<project name=^"POI Build^" default=^"test^"^>^<t
 ''')
                     }
                     ant {
-                        antInstallation(defaultAnt + ' (Windows)')
+                        antInstallation(defaultAntWindows)
                     }
                 }
             }

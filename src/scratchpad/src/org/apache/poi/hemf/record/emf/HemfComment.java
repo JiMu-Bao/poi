@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
 
+import org.apache.poi.hemf.draw.HemfGraphics;
 import org.apache.poi.hemf.record.emfplus.HemfPlusRecord;
 import org.apache.poi.hemf.record.emfplus.HemfPlusRecordIterator;
 import org.apache.poi.hwmf.usermodel.HwmfPicture;
@@ -69,7 +70,9 @@ public class HemfComment {
 
         public static HemfCommentRecordType getById(long id, boolean isEmfPublic) {
             for (HemfCommentRecordType wrt : values()) {
-                if (wrt.id == id && wrt.isEmfPublic == isEmfPublic) return wrt;
+                if (wrt.id == id && wrt.isEmfPublic == isEmfPublic) {
+                    return wrt;
+                }
             }
             return emfGeneric;
         }
@@ -98,6 +101,17 @@ public class HemfComment {
 
         public EmfCommentData getCommentData() {
             return data;
+        }
+
+        @Override
+        public void draw(HemfGraphics ctx) {
+            if (data instanceof EmfCommentDataPlus) {
+                if (ctx.getRenderState() == HemfGraphics.EmfRenderState.INITIAL) {
+                    ctx.setRenderState(HemfGraphics.EmfRenderState.EMFPLUS_ONLY);
+                }
+
+                ((EmfCommentDataPlus)data).draw(ctx);
+            }
         }
 
         @Override
@@ -221,6 +235,10 @@ public class HemfComment {
             return privateData.length;
         }
 
+        public byte[] getPrivateData() {
+            return privateData;
+        }
+
         @Override
         public String toString() {
             return "\""+new String(privateData, LocaleUtil.CHARSET_1252).replaceAll("\\p{Cntrl}", ".")+"\"";
@@ -249,6 +267,10 @@ public class HemfComment {
         public List<HemfPlusRecord> getRecords() {
             return Collections.unmodifiableList(records);
         }
+
+        public void draw(HemfGraphics ctx) {
+            records.forEach(ctx::draw);
+        }
     }
 
     public static class EmfCommentDataBeginGroup implements EmfCommentData {
@@ -273,7 +295,7 @@ public class HemfComment {
             // The number of Unicode characters in the optional description string that follows.
             int nDescription = (int)leis.readUInt();
 
-            byte[] buf = IOUtils.safelyAllocate(nDescription*2, MAX_RECORD_LENGTH);
+            byte[] buf = IOUtils.safelyAllocate(nDescription * 2L, MAX_RECORD_LENGTH);
             leis.readFully(buf);
             description = new String(buf, StandardCharsets.UTF_16LE);
 
@@ -350,7 +372,15 @@ public class HemfComment {
     }
 
     public enum EmfFormatSignature {
+        /**
+         * The value of this member is the sequence of ASCII characters "FME ",
+         * which happens to be the reverse of the string "EMF", and it denotes EMF record data.
+         */
         ENHMETA_SIGNATURE(0x464D4520),
+        /**
+         * The value of this member is the sequence of ASCII characters "FSPE", which happens to be the reverse
+         * of the string "EPSF", and it denotes encapsulated PostScript (EPS) format data.
+         */
         EPS_SIGNATURE(0x46535045);
 
         int id;
@@ -361,7 +391,9 @@ public class HemfComment {
 
         public static EmfFormatSignature getById(int id) {
             for (EmfFormatSignature wrt : values()) {
-                if (wrt.id == id) return wrt;
+                if (wrt.id == id) {
+                    return wrt;
+                }
             }
             return null;
         }
@@ -402,6 +434,10 @@ public class HemfComment {
 
         public byte[] getRawData() {
             return rawData;
+        }
+
+        public EmfFormatSignature getSignature() {
+            return signature;
         }
     }
 

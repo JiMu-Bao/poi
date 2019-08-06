@@ -18,6 +18,7 @@
 package org.apache.poi.xddf.usermodel.chart;
 
 import org.apache.poi.util.Beta;
+import org.apache.poi.util.Internal;
 import org.apache.poi.xddf.usermodel.XDDFShapeProperties;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTAxDataSource;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTNumDataSource;
@@ -29,26 +30,65 @@ import org.openxmlformats.schemas.drawingml.x2006.chart.CTSerTx;
 public class XDDFPieChartData extends XDDFChartData {
     private CTPieChart chart;
 
-    public XDDFPieChartData(CTPieChart chart) {
+    @Internal
+    protected XDDFPieChartData(XDDFChart parent, CTPieChart chart) {
+        super(parent);
         this.chart = chart;
         for (CTPieSer series : chart.getSerList()) {
             this.series.add(new Series(series, series.getCat(), series.getVal()));
         }
     }
 
+    @Internal
     @Override
-    public void setVaryColors(boolean varyColors) {
-        if (chart.isSetVaryColors()) {
-            chart.getVaryColors().setVal(varyColors);
+    protected void removeCTSeries(int n) {
+        chart.removeSer(n);
+    }
+
+    @Override
+    public void setVaryColors(Boolean varyColors) {
+        if (varyColors == null) {
+            if (chart.isSetVaryColors()) {
+                chart.unsetVaryColors();
+            }
         } else {
-            chart.addNewVaryColors().setVal(varyColors);
+            if (chart.isSetVaryColors()) {
+                chart.getVaryColors().setVal(varyColors);
+            } else {
+                chart.addNewVaryColors().setVal(varyColors);
+            }
+        }
+    }
+
+    public Integer getFirstSliceAngle() {
+        if (chart.isSetFirstSliceAng()) {
+            return chart.getFirstSliceAng().getVal();
+        } else {
+            return null;
+        }
+    }
+
+    public void setFirstSliceAngle(Integer angle) {
+        if (angle == null) {
+            if (chart.isSetFirstSliceAng()) {
+                chart.unsetFirstSliceAng();
+            }
+        } else {
+            if (angle < 0 || 360 < angle) {
+                throw new IllegalArgumentException("angle must be between 0 and 360");
+            }
+            if (chart.isSetFirstSliceAng()) {
+                chart.getFirstSliceAng().setVal(angle);
+            } else {
+                chart.addNewFirstSliceAng().setVal(angle);
+            }
         }
     }
 
     @Override
     public XDDFChartData.Series addSeries(XDDFDataSource<?> category,
             XDDFNumericalDataSource<? extends Number> values) {
-        final int index = this.series.size();
+        final long index = this.parent.incrementSeriesCount();
         final CTPieSer ctSer = this.chart.addNewSer();
         ctSer.addNewCat();
         ctSer.addNewVal();
@@ -118,19 +158,25 @@ public class XDDFPieChartData extends XDDFChartData {
             }
         }
 
-        public long getExplosion() {
+        public Long getExplosion() {
             if (series.isSetExplosion()) {
                 return series.getExplosion().getVal();
             } else {
-                return 0;
+                return null;
             }
         }
 
-        public void setExplosion(long explosion) {
-            if (series.isSetExplosion()) {
-                series.getExplosion().setVal(explosion);
+        public void setExplosion(Long explosion) {
+            if (explosion == null) {
+                if (series.isSetExplosion()) {
+                    series.unsetExplosion();
+                }
             } else {
-                series.addNewExplosion().setVal(explosion);
+                if (series.isSetExplosion()) {
+                    series.getExplosion().setVal(explosion);
+                } else {
+                    series.addNewExplosion().setVal(explosion);
+                }
             }
         }
 
@@ -142,6 +188,16 @@ public class XDDFPieChartData extends XDDFChartData {
         @Override
         protected CTNumDataSource getNumDS() {
             return series.getVal();
+        }
+
+        @Override
+        protected void setIndex(long val) {
+            series.getIdx().setVal(val);
+        }
+
+        @Override
+        protected void setOrder(long val) {
+            series.getOrder().setVal(val);
         }
     }
 }

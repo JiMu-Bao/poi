@@ -21,6 +21,7 @@ import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.RenderingHints;
+import java.awt.geom.Dimension2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.RescaleOp;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.poi.hwmf.usermodel.HwmfPicture;
+import org.apache.poi.sl.draw.BitmapImageRenderer;
 import org.apache.poi.sl.draw.DrawPictureShape;
 import org.apache.poi.sl.draw.ImageRenderer;
 import org.apache.poi.sl.usermodel.PictureData.PictureType;
@@ -64,15 +66,8 @@ public class HwmfImageRenderer implements ImageRenderer {
     }
 
     @Override
-    public Dimension getDimension() {
-        int width = 0, height = 0;
-        if (image != null) {
-            Dimension dim = image.getSize();
-            width = Units.pointsToPixel(dim.getWidth());
-            // keep aspect ratio for height
-            height = Units.pointsToPixel(dim.getHeight());
-        }
-        return new Dimension(width, height);
+    public Dimension2D getDimension() {
+        return Units.pointsToPixel(image == null ? new Dimension() : image.getSize());
     }
 
     @Override
@@ -86,7 +81,7 @@ public class HwmfImageRenderer implements ImageRenderer {
     }
 
     @Override
-    public BufferedImage getImage(Dimension dim) {
+    public BufferedImage getImage(Dimension2D dim) {
         if (image == null) {
             return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB); 
         }
@@ -99,17 +94,8 @@ public class HwmfImageRenderer implements ImageRenderer {
         g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
         image.draw(g, new Rectangle2D.Double(0,0,dim.getWidth(),dim.getHeight()));
         g.dispose();
-        
-        if (alpha != 0) {
-            BufferedImage newImg = new BufferedImage((int)dim.getWidth(), (int)dim.getHeight(), BufferedImage.TYPE_INT_ARGB);
-            g = newImg.createGraphics();
-            RescaleOp op = new RescaleOp(new float[]{1.0f, 1.0f, 1.0f, (float)alpha}, new float[]{0,0,0,0}, null);
-            g.drawImage(bufImg, op, 0, 0);
-            g.dispose();
-            bufImg = newImg;
-        }
-        
-        return bufImg;
+
+        return BitmapImageRenderer.setAlpha(bufImg, alpha);
     }
     
     @Override

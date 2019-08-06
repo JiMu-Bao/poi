@@ -24,26 +24,15 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Paint;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Consumer;
 
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBElement;
-import javax.xml.bind.Unmarshaller;
-import javax.xml.stream.EventFilter;
-import javax.xml.stream.XMLEventReader;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.events.StartElement;
-import javax.xml.stream.events.XMLEvent;
-
-import org.apache.poi.sl.draw.binding.CTCustomGeometry2D;
 import org.apache.poi.sl.draw.geom.Context;
 import org.apache.poi.sl.draw.geom.CustomGeometry;
 import org.apache.poi.sl.draw.geom.Outline;
@@ -51,11 +40,11 @@ import org.apache.poi.sl.draw.geom.Path;
 import org.apache.poi.sl.usermodel.LineDecoration;
 import org.apache.poi.sl.usermodel.LineDecoration.DecorationShape;
 import org.apache.poi.sl.usermodel.LineDecoration.DecorationSize;
+import org.apache.poi.sl.usermodel.PaintStyle;
+import org.apache.poi.sl.usermodel.PaintStyle.PaintModifier;
 import org.apache.poi.sl.usermodel.PaintStyle.SolidPaint;
 import org.apache.poi.sl.usermodel.Shadow;
 import org.apache.poi.sl.usermodel.SimpleShape;
-import org.apache.poi.util.IOUtils;
-import org.apache.poi.util.StaxHelper;
 import org.apache.poi.util.Units;
 
 
@@ -73,9 +62,8 @@ public class DrawSimpleShape extends DrawShape {
             return;
         }
 
-        DrawPaint drawPaint = DrawFactory.getInstance(graphics).getPaint(getShape());
-        Paint fill = drawPaint.getPaint(graphics, getShape().getFillStyle().getPaint());
-        Paint line = drawPaint.getPaint(graphics, getShape().getStrokeStyle().getPaint());
+        Paint fill = getFillPaint(graphics);
+        Paint line = getLinePaint(graphics);
         BasicStroke stroke = getStroke(); // the stroke applies both to the shadow and the shape
         graphics.setStroke(stroke);
 
@@ -86,16 +74,28 @@ public class DrawSimpleShape extends DrawShape {
 
         // then fill the shape interior
         if (fill != null) {
+            final Path2D area = new Path2D.Double();
+            graphics.setRenderingHint(Drawable.GRADIENT_SHAPE, area);
+
+            Consumer<PaintModifier> fun = (pm) -> fillArea(graphics, pm, area);
+
+            PaintModifier pm = null;
             for (Outline o : elems) {
-                if (o.getPath().isFilled()){
-                    Paint fillMod = drawPaint.getPaint(graphics, getShape().getFillStyle().getPaint(), o.getPath().getFill());
-                    if (fillMod != null) {
-                        graphics.setPaint(fillMod);
-                        java.awt.Shape s = o.getOutline();
-                        graphics.setRenderingHint(Drawable.GRADIENT_SHAPE, s);
-                        fillPaintWorkaround(graphics, s);
+                Path path = o.getPath();
+                if (path.isFilled()) {
+                    PaintModifier pmOld = pm;
+                    pm = path.getFill();
+                    if (pmOld != null && pmOld != pm) {
+                        fun.accept(pmOld);
+                        area.reset();
+                    } else {
+                        area.append(o.getOutline(), false);
                     }
                 }
+            }
+
+            if (area.getCurrentPoint() != null) {
+                fun.accept(pm);
             }
         }
 
@@ -118,6 +118,30 @@ public class DrawSimpleShape extends DrawShape {
 		// draw line decorations
         drawDecoration(graphics, line, stroke);
     }
+
+    private void fillArea(Graphics2D graphics, PaintModifier pm, Path2D area) {
+        final SimpleShape<?, ?> ss = getShape();
+        final PaintStyle ps = ss.getFillStyle().getPaint();
+        final DrawPaint drawPaint = DrawFactory.getInstance(graphics).getPaint(ss);
+        final Paint fillMod = drawPaint.getPaint(graphics, ps, pm);
+        if (fillMod != null) {
+            graphics.setPaint(fillMod);
+            fillPaintWorkaround(graphics, area);
+        }
+    }
+
+    protected Paint getFillPaint(Graphics2D graphics) {
+        final PaintStyle ps = getShape().getFillStyle().getPaint();
+        DrawPaint drawPaint = DrawFactory.getInstance(graphics).getPaint(getShape());
+        return drawPaint.getPaint(graphics, ps);
+    }
+
+    protected Paint getLinePaint(Graphics2D graphics) {
+        final PaintStyle ps = getShape().getFillStyle().getPaint();
+        DrawPaint drawPaint = DrawFactory.getInstance(graphics).getPaint(getShape());
+        return drawPaint.getPaint(graphics, getShape().getStrokeStyle().getPaint());
+    }
+
 
     protected void drawDecoration(Graphics2D graphics, Paint line, BasicStroke stroke) {
         if(line == null) {
@@ -307,98 +331,39 @@ public class DrawSimpleShape extends DrawShape {
       , Paint fill
       , Paint line
     ) {
-          Shadow<?,?> shadow = getShape().getShadow();
-          if (shadow == null || (fill == null && line == null)) {
-              return;
-          }
+        Shadow<?,?> shadow = getShape().getShadow();
+        if (shadow == null || (fill == null && line == null)) {
+            return;
+        }
 
-          SolidPaint shadowPaint = shadow.getFillStyle();
-          Color shadowColor = DrawPaint.applyColorTransform(shadowPaint.getSolidColor());
+        SolidPaint shadowPaint = shadow.getFillStyle();
+        Color shadowColor = DrawPaint.applyColorTransform(shadowPaint.getSolidColor());
 
-          double shapeRotation = getShape().getRotation();
-          if(getShape().getFlipVertical()) {
-              shapeRotation += 180;
-          }
-          double angle = shadow.getAngle() - shapeRotation;
-          double dist = shadow.getDistance();
-          double dx = dist * Math.cos(Math.toRadians(angle));
-          double dy = dist * Math.sin(Math.toRadians(angle));
+        double shapeRotation = getShape().getRotation();
+        if (getShape().getFlipVertical()) {
+            shapeRotation += 180;
+        }
+        double angle = shadow.getAngle() - shapeRotation;
+        double dist = shadow.getDistance();
+        double dx = dist * Math.cos(Math.toRadians(angle));
+        double dy = dist * Math.sin(Math.toRadians(angle));
 
-          graphics.translate(dx, dy);
+        graphics.translate(dx, dy);
 
-          for(Outline o : outlines){
-              java.awt.Shape s = o.getOutline();
-              Path p = o.getPath();
-              graphics.setRenderingHint(Drawable.GRADIENT_SHAPE, s);
-              graphics.setPaint(shadowColor);
+        for (Outline o : outlines) {
+            java.awt.Shape s = o.getOutline();
+            Path p = o.getPath();
+            graphics.setRenderingHint(Drawable.GRADIENT_SHAPE, s);
+            graphics.setPaint(shadowColor);
 
-              if(fill != null && p.isFilled()){
-                  fillPaintWorkaround(graphics, s);
-              } else if (line != null && p.isStroked()) {
-                  graphics.draw(s);
-              }
-          }
-
-          graphics.translate(-dx, -dy);
-      }
-
-    protected static CustomGeometry getCustomGeometry(String name) {
-        return getCustomGeometry(name, null);
-    }
-
-    protected static CustomGeometry getCustomGeometry(String name, Graphics2D graphics) {
-        @SuppressWarnings("unchecked")
-        Map<String, CustomGeometry> presets = (graphics == null)
-            ? null
-            : (Map<String, CustomGeometry>)graphics.getRenderingHint(Drawable.PRESET_GEOMETRY_CACHE);
-
-        if (presets == null) {
-            presets = new HashMap<>();
-            if (graphics != null) {
-                graphics.setRenderingHint(Drawable.PRESET_GEOMETRY_CACHE, presets);
-            }
-
-            String packageName = "org.apache.poi.sl.draw.binding";
-            InputStream presetIS = Drawable.class.getResourceAsStream("presetShapeDefinitions.xml");
-
-            // StAX:
-            EventFilter startElementFilter = new EventFilter() {
-                @Override
-                public boolean accept(XMLEvent event) {
-                    return event.isStartElement();
-                }
-            };
-
-            try {
-                XMLInputFactory staxFactory = StaxHelper.newXMLInputFactory();
-                XMLEventReader staxReader = staxFactory.createXMLEventReader(presetIS);
-                XMLEventReader staxFiltRd = staxFactory.createFilteredReader(staxReader, startElementFilter);
-                // Ignore StartElement:
-                staxFiltRd.nextEvent();
-                // JAXB:
-                JAXBContext jaxbContext = JAXBContext.newInstance(packageName);
-                Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
-
-                while (staxFiltRd.peek() != null) {
-                    StartElement evRoot = (StartElement)staxFiltRd.peek();
-                    String cusName = evRoot.getName().getLocalPart();
-                    // XMLEvent ev = staxReader.nextEvent();
-                    JAXBElement<org.apache.poi.sl.draw.binding.CTCustomGeometry2D> el = unmarshaller.unmarshal(staxReader, CTCustomGeometry2D.class);
-                    CTCustomGeometry2D cusGeom = el.getValue();
-
-                    presets.put(cusName, new CustomGeometry(cusGeom));
-                }
-
-                staxFiltRd.close();
-                staxReader.close();
-            } catch (Exception e) {
-                throw new RuntimeException("Unable to load preset geometries.", e);
-            } finally {
-                IOUtils.closeQuietly(presetIS);
+            if (fill != null && p.isFilled()) {
+                fillPaintWorkaround(graphics, s);
+            } else if (line != null && p.isStroked()) {
+                graphics.draw(s);
             }
         }
 
-        return presets.get(name);
+        graphics.translate(-dx, -dy);
     }
 
     protected Collection<Outline> computeOutlines(Graphics2D graphics) {

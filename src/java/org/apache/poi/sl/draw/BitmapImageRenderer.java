@@ -23,6 +23,7 @@ import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.Shape;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Dimension2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
@@ -237,12 +238,15 @@ public class BitmapImageRenderer implements ImageRenderer {
     }
 
     @Override
-    public BufferedImage getImage(Dimension dim) {
+    public BufferedImage getImage(Dimension2D dim) {
+        if (img == null) {
+            return img;
+        }
         double w_old = img.getWidth();
         double h_old = img.getHeight();
-        BufferedImage scaled = new BufferedImage((int)w_old, (int)h_old, BufferedImage.TYPE_INT_ARGB);
         double w_new = dim.getWidth();
         double h_new = dim.getHeight();
+        BufferedImage scaled = new BufferedImage((int)w_new, (int)h_new, BufferedImage.TYPE_INT_ARGB);
         AffineTransform at = new AffineTransform();
         at.scale(w_new/w_old, h_new/h_old);
         AffineTransformOp scaleOp = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
@@ -259,16 +263,22 @@ public class BitmapImageRenderer implements ImageRenderer {
 
     @Override
     public void setAlpha(double alpha) {
-        if (img == null) return;
+        img = setAlpha(img, alpha);
+    }
 
-        Dimension dim = getDimension();
-        BufferedImage newImg = new BufferedImage((int)dim.getWidth(), (int)dim.getHeight(), BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = newImg.createGraphics();
-        RescaleOp op = new RescaleOp(new float[]{1.0f, 1.0f, 1.0f, (float)alpha}, new float[]{0,0,0,0}, null);
-        g.drawImage(img, op, 0, 0);
-        g.dispose();
+    public static BufferedImage setAlpha(BufferedImage image, double alpha) {
+        if (image == null) {
+            return new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+        }
 
-        img = newImg;
+        if (alpha == 0) {
+            return image;
+        }
+
+        float[] scalefactors = {1, 1, 1, (float)alpha};
+        float[] offsets = {0,0,0,0};
+        RescaleOp op = new RescaleOp(scalefactors, offsets, null);
+        return op.filter(image, null);
     }
 
 

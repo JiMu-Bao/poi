@@ -20,16 +20,16 @@ package org.apache.poi.hwmf;
 import static org.apache.poi.POITestCase.assertContains;
 import static org.junit.Assert.assertEquals;
 
-import javax.imageio.ImageIO;
-import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.geom.Dimension2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,12 +41,15 @@ import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import javax.imageio.ImageIO;
+
 import org.apache.poi.POIDataSamples;
 import org.apache.poi.hwmf.record.HwmfFill.HwmfImageRecord;
 import org.apache.poi.hwmf.record.HwmfFont;
 import org.apache.poi.hwmf.record.HwmfRecord;
 import org.apache.poi.hwmf.record.HwmfRecordType;
 import org.apache.poi.hwmf.record.HwmfText;
+import org.apache.poi.hwmf.usermodel.HwmfEmbedded;
 import org.apache.poi.hwmf.usermodel.HwmfPicture;
 import org.apache.poi.sl.usermodel.PictureData;
 import org.apache.poi.sl.usermodel.PictureData.PictureType;
@@ -82,23 +85,23 @@ public class TestHwmfParsing {
     @Test
     @Ignore("This is work-in-progress and not a real unit test ...")
     public void paint() throws IOException {
-        File f = samples.getFile("santa.wmf");
-        // File f = new File("bla.wmf");
+        boolean dumpEmbedded = true;
+        boolean dumpRecords = false;
+
+        File f = new File("testme.wmf");
         FileInputStream fis = new FileInputStream(f);
         HwmfPicture wmf = new HwmfPicture(fis);
         fis.close();
         
-        Dimension dim = wmf.getSize();
-        int width = Units.pointsToPixel(dim.getWidth());
+        Dimension2D dim = wmf.getSize();
+        double width = Units.pointsToPixel(dim.getWidth());
         // keep aspect ratio for height
-        int height = Units.pointsToPixel(dim.getHeight());
-        double max = Math.max(width, height);
-        if (max > 1500) {
-            width *= 1500/max;
-            height *= 1500/max;
-        }
-        
-        BufferedImage bufImg = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        double height = Units.pointsToPixel(dim.getHeight());
+        double scale = (width > height) ? 1500 / width : 1500 / width;
+        width = Math.abs(width * scale);
+        height = Math.abs(height * scale);
+
+        BufferedImage bufImg = new BufferedImage((int)width, (int)height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = bufImg.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
@@ -110,6 +113,28 @@ public class TestHwmfParsing {
         g.dispose();
         
         ImageIO.write(bufImg, "PNG", new File("bla.png"));
+
+        if (dumpEmbedded) {
+            int embIdx = 0;
+            for (HwmfEmbedded emb : wmf.getEmbeddings()) {
+                final File embName = new File("build/tmp", "emb_"+embIdx + emb.getEmbeddedType().extension);
+                try (FileOutputStream fos = new FileOutputStream(embName)) {
+                    fos.write(emb.getRawData());
+                }
+                embIdx++;
+            }
+        }
+
+        if (dumpRecords) {
+            try (FileWriter fw = new FileWriter("wmf-records.log")) {
+                for (HwmfRecord r : wmf.getRecords()) {
+                    fw.write(r.getWmfRecordType().name());
+                    fw.write(":");
+                    fw.write(r.toString());
+                    fw.write("\n");
+                }
+            }
+        }
     }
 
     @Test
@@ -186,11 +211,11 @@ public class TestHwmfParsing {
                 }
 
                 if (renderWmf) {
-                    Dimension dim = wmf.getSize();
+                    Dimension2D dim = wmf.getSize();
                     int width = Units.pointsToPixel(dim.getWidth());
                     // keep aspect ratio for height
                     int height = Units.pointsToPixel(dim.getHeight());
-                    
+
                     BufferedImage bufImg = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
                     Graphics2D g = bufImg.createGraphics();
                     g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
